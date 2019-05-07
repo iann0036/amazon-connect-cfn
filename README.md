@@ -2,7 +2,7 @@
 
 ![Screenshot](screen.png)
 
-### :exclamation: This is an experiment. The method used to perform this is **not a good idea**.
+:exclamation: This is an experiment. The method used to perform this is **not a good idea**.
 
 ## How It Works
 
