@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Example that deploys an Amazon Connect instance with contact flow.
+
+Transform:
+  - AmazonConnectProvider
+
+Resources:
+
+    myConnectInstance:
+        Type: AWS::Connect::Instance
+        Properties:
+            Domain: exampledomain
+    
+    myConnectContactFlow:
+        Type: AWS::Connect::ContactFlow
+        Properties:
+            ConnectInstance: !Ref myConnectInstance
+            Name: myFlow
+            Description: An example flow
+            States:
+              - Id: play
+                Type: PlayPrompt
+                Parameters:
+                  - Name: Text
+                    Value: You have called an Amazon Connect instance
+                  - Name: TextToSpeechType
+                    Value: text
+              - Id: disconnect
+                Type: Disconnect
+                After:
+                    Id: play
+                    Condition: Success
+
+    myConnectPhoneNumber:
+        Type: AWS::Connect::PhoneNumber
+        Properties:
+            ConnectInstance: !Ref myConnectInstance
+            ContactFlow: !Ref myConnectContactFlow
+            Type: DID
+            Country: Australia
+            Description: An example phone number

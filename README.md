@@ -1,2 +1,7 @@
-# amazon-connect-cfn
-Create Amazon Connect instances, connect flows etc. with CloudFormation
+# CloudFormation resource provider for Amazon Connect
+
+![Screenshot](screen.png)
+
+## Overview
+
+...
