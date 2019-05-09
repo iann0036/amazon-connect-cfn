@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Custom resource provider for Amazon Connect
+
+Parameters:
+
+    S3Bucket:
+        Description: The name of the bucket that contains the Lambda source (leave blank to use latest)
+        Type: String
+        Default: ''
+    
+    S3Key:
+        Description: The key of the ZIP package within the bucket (leave blank to use latest)
+        Type: String
+        Default: ''
+
+Conditions:
+
+    S3Defined: !Not [ !Equals [ '', !Ref S3Bucket ] ]
+
+Resources:
+
+    DebugBucket:
+        Type: AWS::S3::Bucket
+
+    AmazonConnectUserPassword:
+        Type: AWS::SecretsManager::Secret
+        Properties:
+            Name: AmazonConnectUserPassword
+            Description: The password for the AmazonConnectAutomationUser
+            GenerateSecretString:
+                SecretStringTemplate: '{}'
+                GenerateStringKey: "password"
+                PasswordLength: 30
+                ExcludeCharacters: '"@/\'
+
+    AmazonConnectIAMUser:
+        Type: AWS::IAM::User
+        Properties:
+            UserName: AmazonConnectAutomationUser
+            ManagedPolicyArns:
+              - arn:aws:iam::aws:policy/AmazonConnectFullAccess
+            LoginProfile:
+                Password: !Sub "{{resolve:secretsmanager:${AmazonConnectUserPassword}:SecretString:password}}"
+                PasswordResetRequired: false
+
+    TransformFunction:
+        Type: AWS::Lambda::Function
+        Properties:
+            Code:
+                S3Bucket: !If
+                    - S3Defined
+                    - !Ref S3Bucket
+                    - !Sub 'ianmckay-${AWS::Region}'
+                S3Key: !If
+                    - S3Defined
+                    - !Ref S3Key
+                    - 'amazonconnectprovider/app.zip'
+            Handler: index.handler
+            Role: !GetAtt 'LambdaExecutionRole.Arn'
+            Environment:
+                Variables:
+                    CONNECT_USERNAME: !Ref AmazonConnectIAMUser
+                    CONNECT_PASSWORD_SECRET: !Ref AmazonConnectUserPassword
+                    DEBUG_BUCKET: !Ref DebugBucket
+                    ACCOUNTID: !Ref AWS::AccountId
+            Runtime: nodejs8.10
+            MemorySize: 1024
+            Timeout: 900
+    
+    LambdaExecutionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                  - Effect: Allow
+                    Principal:
+                        Service:
+                          - lambda.amazonaws.com
+                    Action:
+                      - sts:AssumeRole
+            Path: /
+            Policies:
+              - PolicyName: root
+                PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                      - Effect: Allow
+                        Action:
+                          - logs:CreateLogGroup
+                          - logs:CreateLogStream
+                          - logs:PutLogEvents
+                        Resource: arn:aws:logs:*:*:*
+                      - Effect: Allow
+                        Action:
+                          - s3:*
+                        Resource:
+                          - !Sub arn:aws:s3:::${DebugBucket}
+                          - !Sub arn:aws:s3:::${DebugBucket}/*
+                      - Effect: Allow
+                        Action:
+                          - secretsmanager:GetSecretValue
+                        Resource: !Ref AmazonConnectUserPassword
+
+    TransformFunctionPermissions:
+        Type: AWS::Lambda::Permission
+        Properties:
+            Action: 'lambda:InvokeFunction'
+            FunctionName: !GetAtt TransformFunction.Arn
+            Principal: 'cloudformation.amazonaws.com'
+    
+    AmazonConnectTransform:
+        Type: AWS::CloudFormation::Transform
+        Properties:
+            Name: !Sub '${AWS::AccountId}::AmazonConnectProvider'
+            Description: Adds support for Amazon Connect resources
+            RoutingTable:
+                '*': 1
+            Versions:
+              - VersionName: 1
+                Description: Version 1
+                FunctionName: !GetAtt TransformFunction.Arn
+            ExecutionPolicy:
+                Version: '2012-10-17'
+                Id: AllowThisAccount
+                Statement:
+                  - Sid: AllowExecution
+                    Effect: Allow
+                    Principal:
+                        AWS: !Sub '${AWS::AccountId}'
+                    Action:
+                      - 'cloudformation:*'
+                    Resource: !Sub 'arn:*:cloudformation:${AWS::Region}:${AWS::AccountId}:transform/AmazonConnectProvider'
