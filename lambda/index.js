@@ -13,21 +13,28 @@ const uploadResult = async (url, data) => {
     await rp({ url: url, method: 'PUT', body: JSON.stringify(data) });
 }
 
-const uploadFile = (filePath, bucketName, key) => {
-    fs.readFile(filePath, (err, data) => {
-        if (err) console.error(err);
+const debugScreenshot = async (page) => {
+    let filename = Date.now().toString() + ".png";
 
-        var base64data = new Buffer(data, 'binary');
+    await page.screenshot({ path: '/tmp/' + filename });
 
-        var params = {
-            Bucket: bucketName,
-            Key: key,
-            Body: base64data
-        };
+    await new Promise(function (resolve, reject) {
+        fs.readFile('/tmp/' + filename, (err, data) => {
+            if (err) console.error(err);
 
-        s3.upload(params, (err, data) => {
-            if (err) console.error(`Upload Error ${err}`);
-            console.log('Upload Completed');
+            var base64data = new Buffer(data, 'binary');
+
+            var params = {
+                Bucket: process.env.DEBUG_BUCKET,
+                Key: filename,
+                Body: base64data
+            };
+
+            s3.upload(params, (err, data) => {
+                if (err) console.error(`Upload Error ${err}`);
+                console.log('Upload Completed');
+                resolve();
+            });
         });
     });
 };
@@ -51,9 +58,7 @@ async function login(page) {
     });
 
     await page.goto('https://' + process.env.ACCOUNTID + '.signin.aws.amazon.com/console');
-    await page.screenshot({ path: '/tmp/screen1.png' });
-    await uploadFile('/tmp/screen1.png', process.env.DEBUG_BUCKET, 'screen1.png');
-    await page.waitFor(4000);
+    await debugScreenshot(page);
 
     let username = await page.$('#username');
     await username.press('Backspace');
@@ -66,28 +71,27 @@ async function login(page) {
     let signin_button = await page.$('#signin_button');
     signin_button.click();
 
-    await page.screenshot({ path: '/tmp/screen2.png' });
-    uploadFile('/tmp/screen2.png', process.env.DEBUG_BUCKET, 'screen2.png');
+    await debugScreenshot(page);
 
     await page.waitFor(5000);
 }
 
-async function create(page, directoryname) {
+async function createinstance(page, properties) {
     await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/onboarding');
     await page.waitFor(5000);
 
     let directory = await page.$('input[ng-model="ad.directoryAlias"]');
     await directory.press('Backspace');
-    await directory.type(directoryname, { delay: 100 });
+    await directory.type(properties.Domain, { delay: 100 });
 
     page.focus('button.awsui-button-variant-primary');
     let next1 = await page.$('button.awsui-button-variant-primary');
     next1.click();
 
+    await page.waitForSelector('label.vertical-padding.option-label');
     await page.waitFor(200);
-
-    let skipradio = await page.$('label.vertical-padding.option-label:nth-child(3)');
-    skipradio.click();
+    let skipradio = await page.$$('label.vertical-padding.option-label');
+    skipradio.pop().click();
 
     await page.waitFor(200);
 
@@ -114,22 +118,18 @@ async function create(page, directoryname) {
     let finish = await page.$('button[type="submit"].awsui-button-variant-primary');
     finish.click();
 
-    await page.waitFor(180000);
+    await page.waitForSelector('div.launch-page-login-link', {timeout: 180000});
 
-    await page.screenshot({ path: '/tmp/screen25.png' });
-    uploadFile('/tmp/screen25.png', process.env.DEBUG_BUCKET, 'screen25.png');
+    await debugScreenshot(page);
 
     await page.waitFor(3000);
-
-    //await page.waitForXPath("//button[contains(text(), 'Get started')]", {timeout: 180000});
 }
 
 async function open(page, properties) {
     await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
     await page.waitFor(8000);
 
-    await page.screenshot({ path: '/tmp/screen3.png' });
-    uploadFile('/tmp/screen3.png', process.env.DEBUG_BUCKET, 'screen3.png');
+    await debugScreenshot(page);
 
     await page.waitFor(3000);
 
@@ -147,16 +147,51 @@ async function open(page, properties) {
 
     await page.waitFor(8000);
 
-    await page.screenshot({ path: '/tmp/screen4.png' });
-    uploadFile('/tmp/screen4.png', process.env.DEBUG_BUCKET, 'screen4.png');
+    await debugScreenshot(page);
+}
+
+async function deleteinstance(page, properties) {
+    await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
+    await page.waitFor(8000);
+
+    await debugScreenshot(page);
+
+    await page.waitFor(3000);
+
+    let checkbox = await page.$$('awsui-checkbox > label > input');
+    await checkbox[0].click();
+    await page.waitFor(200);
+
+    await debugScreenshot(page);
+    console.log("Clicked checkbox");
+
+    let removebutton = await page.$$('button[type="submit"]');
+    console.log(removebutton.length);
+    await removebutton[1].click();
+    console.log("Clicked remove");
+    await page.waitFor(200);
+
+    let directory = await page.$('#awsui-textfield-1');
+    await directory.press('Backspace');
+    await directory.type(properties.Domain, { delay: 100 });
+    await page.waitFor(200);
+
+    let confirm = await page.$('awsui-button[click="confirmDeleteOrg()"] > button');
+    await confirm.click();
+    await page.waitFor(5000);
+
+    await debugScreenshot(page);
 }
 
 async function claimnumber(page, properties) {
-    await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/numbers/claim');
+    let host = 'https://' + new url.URL(await page.url()).host;
+
+    console.log(host + '/connect/numbers/claim');
+
+    await page.goto(host + '/connect/numbers/claim');
     await page.waitFor(5000);
 
-    await page.screenshot({ path: '/tmp/screen31.png' });
-    uploadFile('/tmp/screen31.png', process.env.DEBUG_BUCKET, 'screen31.png');
+    await debugScreenshot(page);
 
     await page.waitFor(3000);
 
@@ -178,32 +213,58 @@ async function claimnumber(page, properties) {
     let phonenumberselection = await page.$('div.active > awsui-radio-group > div > span > div:nth-child(1) > awsui-radio-button > label.awsui-radio-button-wrapper-label > div');
     await phonenumberselection.click();
     let phonenumber = await page.$('div.active > awsui-radio-group > div > span > div:nth-child(1) > awsui-radio-button > label.awsui-radio-button-checked.awsui-radio-button-label > div > span > div');
+    let phonenumbertext = await page.evaluate(el => el.textContent, phonenumber);
 
     await page.waitFor(200);
 
-    await page.screenshot({ path: '/tmp/screen4.png' });
-    uploadFile('/tmp/screen4.png', process.env.DEBUG_BUCKET, 'screen4.png');
+    await debugScreenshot(page);
+
+    let disclaimerlink = await page.$('div.tab-pane.ng-scope.active > div.alert.alert-warning.ng-scope > a');
+    if (disclaimerlink !== null) {
+        disclaimerlink.click();
+    }
+
+    await page.waitFor(200);
+
+    await debugScreenshot(page);
 
     let s2id = await page.$('#s2id_select-width > a');
     await s2id.click();
     await page.waitFor(2000);
 
-    await page.screenshot({ path: '/tmp/screen32.png' });
-    uploadFile('/tmp/screen32.png', process.env.DEBUG_BUCKET, 'screen32.png');
-    await page.waitFor(4000);
+    await debugScreenshot(page);
 
-    //#select2-drop > div > input
+    let s2input = await page.$('#select2-drop > div > input');
+    await s2input.press('Backspace');
+    await s2input.type("myFlow", { delay: 100 });
+    await page.waitFor(2000);
+    await s2input.press('Enter');
+    await page.waitFor(1000);
+
+    await debugScreenshot(page);
+
+    let savenumber = await page.$('awsui-button[text="Save"] > button');
+    await savenumber.click();
+    await page.waitFor(5000);
+
+    await debugScreenshot(page);
+
+    return {
+        'PhoneNumber': phonenumbertext
+    };
 }
 
 async function createflow(page, properties) {
     let host = 'https://' + new url.URL(await page.url()).host;
+    
+    do {
+        await page.goto(host + "/connect/contact-flows/create?type=contactFlow");
+        await page.waitFor(5000);
+        console.log("Checking for correct load");
+        console.log(host + "/connect/contact-flows/create?type=contactFlow");
+    } while (await page.$('#angularContainer') === null);
 
-    await page.goto(host + "/connect/contact-flows/create?type=contactFlow");
-    await page.waitFor(5000);
-
-    await page.screenshot({ path: '/tmp/screen7.png' });
-    uploadFile('/tmp/screen7.png', process.env.DEBUG_BUCKET, 'screen7.png');
-    await page.waitFor(3000);
+    await debugScreenshot(page);
 
     let dropdown = await page.$('#can-edit-contact-flow > div > awsui-button > button');
     console.log(dropdown);
@@ -211,8 +272,7 @@ async function createflow(page, properties) {
 
     await page.waitFor(200);
 
-    await page.screenshot({ path: '/tmp/screen8.png' });
-    uploadFile('/tmp/screen8.png', process.env.DEBUG_BUCKET, 'screen8.png');
+    await debugScreenshot(page);
 
     let importbutton = await page.$('li[ng-if="cfImportExport"]');
     console.log(importbutton);
@@ -220,8 +280,7 @@ async function createflow(page, properties) {
 
     await page.waitFor(500);
 
-    await page.screenshot({ path: '/tmp/screen9.png' });
-    uploadFile('/tmp/screen9.png', process.env.DEBUG_BUCKET, 'screen9.png');
+    await debugScreenshot(page);
 
     await new Promise(function (resolve, reject) {
         var itemcount = 1;
@@ -286,8 +345,7 @@ async function createflow(page, properties) {
 
     await page.waitFor(5000);
 
-    await page.screenshot({ path: '/tmp/screen10.png' });
-    uploadFile('/tmp/screen10.png', process.env.DEBUG_BUCKET, 'screen10.png');
+    await debugScreenshot(page);
 
     await dropdown.click();
     await page.waitFor(200);
@@ -301,8 +359,7 @@ async function createflow(page, properties) {
 
     await page.waitFor(5000);
 
-    await page.screenshot({ path: '/tmp/screen11.png' });
-    uploadFile('/tmp/screen11.png', process.env.DEBUG_BUCKET, 'screen11.png');
+    await debugScreenshot(page);
 }
 
 exports.handler = async (event, context) => {
@@ -350,11 +407,19 @@ exports.handler = async (event, context) => {
 
             if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await login(page);
-                await create(page, event.ResourceProperties.Domain);
+                await createinstance(page, event.ResourceProperties);
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 await createflow(page, event.ResourceProperties);
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
+                await login(page);
+                await open(page, event.ResourceProperties);
+                response_object.Data = await claimnumber(page, event.ResourceProperties);
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
+                await login(page);
+                await open(page, event.ResourceProperties);
+                await deleteinstance(page, event.ResourceProperties);
             } else if (event.RequestType == "Delete") {
                 ;
             } else {

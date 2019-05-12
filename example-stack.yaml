@@ -10,7 +10,7 @@ Resources:
     myConnectInstance:
         Type: "AWS::Connect::Instance"
         Properties:
-            Domain: "ianmexample4"
+            Domain: "ianmexample"
     
     myConnectContactFlow:
         Type: "AWS::Connect::ContactFlow"
@@ -33,11 +33,17 @@ Resources:
               - Id: "disconnect"
                 Type: "Disconnect"
 
-    #myConnectPhoneNumber:
-    #    Type: "AWS::Connect::PhoneNumber"
-    #    Properties:
-    #        ConnectInstance: !Ref myConnectInstance
-    #        ContactFlow: !Ref myConnectContactFlow
-    #        Type: "DID"
-    #        Country: "Australia"
-    #        Description: "An example phone number"
+    myConnectPhoneNumber:
+        Type: "AWS::Connect::PhoneNumber"
+        Properties:
+            ConnectInstance: !Ref myConnectInstance
+            ContactFlow: !Ref myConnectContactFlow
+            Type: "DID"
+            Country: "Australia"
+            Description: "An example phone number"
+
+Outputs:
+
+    myConnectOutput:
+        Description: The phone number for the contact flow
+        Value: !GetAtt myConnectPhoneNumber.PhoneNumber
