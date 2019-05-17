@@ -1,8 +1,10 @@
 # AWS::Connect::Instance
 
-The Amazon Connect instance resource creates a virtual call center instance within the account.
+An Amazon Connect instance contains all of the resources and settings related to your contact center.
 
-Removing this resource will remove any subresources such as contact flows and phone numbers.
+After you create an instance, you can add further Amazon Connect resources within the instance by referencing it.
+
+> **Note**: Removing this resource will remove any subresources such as contact flows and phone numbers.
 
 ## Properties
 

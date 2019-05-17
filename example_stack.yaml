@@ -36,8 +36,8 @@ Resources:
     myConnectPhoneNumber:
         Type: "AWS::Connect::PhoneNumber"
         Properties:
-            ConnectInstance: !Ref myConnectInstance
-            ContactFlow: !Ref myConnectContactFlow
+            ConnectInstance: !GetAtt myConnectInstance.Domain
+            ContactFlow: !GetAtt myConnectContactFlow.Name
             Type: "DID"
             Country: "Australia"
             Description: "An example phone number"
