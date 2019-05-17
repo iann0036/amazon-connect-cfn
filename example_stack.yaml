@@ -15,7 +15,7 @@ Resources:
     myConnectContactFlow:
         Type: "AWS::Connect::ContactFlow"
         Properties:
-            ConnectInstance: !Ref myConnectInstance
+            ConnectInstance: !GetAtt myConnectInstance.Domain
             Name: "myFlow"
             Description: "An example flow"
             States:
