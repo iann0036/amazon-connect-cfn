@@ -15,7 +15,9 @@ If you prefer, you can also manually upsert the [custom_resource.yaml](custom_re
 
 ## Usage
 
-Once the handler stack is created, you may use the below resources by adding the `AmazonConnectProvider` transform to your stack. This will transform your input template to convert the AWS::Connect::* resources into Custom Resources that will handle the lifecycle for that resource.
+Once the handler stack is created, you may use the below resources by adding the `AmazonConnectProvider` transform to your stack. This will transform your input template to convert the `AWS::Connect::*` resources into Custom Resources that will handle the lifecycle for that resource.
+
+Check out the [example_stack.yaml](example_stack.yaml) file for a comprehensive example.
 
 
 ## Provided Resource Types
