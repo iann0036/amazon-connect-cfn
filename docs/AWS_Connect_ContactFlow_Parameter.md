@@ -1,4 +1,4 @@
-# AWS::Connect::ContactFlow Branch
+# AWS::Connect::ContactFlow Parameter
 
 A parameter that defines the actionable properties of a state.
 
