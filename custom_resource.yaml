@@ -22,6 +22,12 @@ Resources:
 
     DebugBucket:
         Type: AWS::S3::Bucket
+        Properties:
+            LifecycleConfiguration:
+                Rules:
+                  - NoncurrentVersionExpirationInDays: 1
+                    ExpirationInDays: 1
+                    Status: Enabled
 
     AmazonConnectUserPassword:
         Type: AWS::SecretsManager::Secret
@@ -94,9 +100,8 @@ Resources:
                         Resource: arn:aws:logs:*:*:*
                       - Effect: Allow
                         Action:
-                          - s3:*
+                          - s3:PutObject
                         Resource:
-                          - !Sub arn:aws:s3:::${DebugBucket}
                           - !Sub arn:aws:s3:::${DebugBucket}/*
                       - Effect: Allow
                         Action:

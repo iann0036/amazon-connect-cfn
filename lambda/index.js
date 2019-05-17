@@ -183,6 +183,13 @@ async function deleteinstance(page, properties) {
     await debugScreenshot(page);
 }
 
+async function deletephonenumber(page, properties) {
+    await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
+    await page.waitFor(8000);
+
+    await debugScreenshot(page);
+}
+
 async function claimnumber(page, properties) {
     let host = 'https://' + new url.URL(await page.url()).host;
 
@@ -418,10 +425,13 @@ exports.handler = async (event, context) => {
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await login(page);
-                await open(page, event.ResourceProperties);
                 await deleteinstance(page, event.ResourceProperties);
-            } else if (event.RequestType == "Delete") {
-                ;
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
+                await login(page);
+                await open(page, event.ResourceProperties);
+                await deletephonenumber(page, event.ResourceProperties);
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
+                ; // do nothing
             } else {
                 throw "Unknown action";
             }

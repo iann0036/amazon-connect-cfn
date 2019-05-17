@@ -2,7 +2,7 @@
 
 > _"You did WHAT?"_
 
-<img src="https://raw.githubusercontent.com/iann0036/amazon-connect-cfn/master/screen.png" width="733" height="859" />
+<img src="https://raw.githubusercontent.com/iann0036/amazon-connect-cfn/master/screen.png" width="588" height="689" />
 
 ## Installation
 
