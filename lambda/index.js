@@ -122,7 +122,7 @@ async function createinstance(page, properties) {
 
     await debugScreenshot(page);
 
-    await page.waitFor(3000);
+    await page.waitFor(120000);
 
     return {
         'Domain': properties.Domain
