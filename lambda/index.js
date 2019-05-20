@@ -123,6 +123,10 @@ async function createinstance(page, properties) {
     await debugScreenshot(page);
 
     await page.waitFor(3000);
+
+    return {
+        'Domain': properties.Domain
+    };
 }
 
 async function open(page, properties) {
@@ -184,8 +188,22 @@ async function deleteinstance(page, properties) {
 }
 
 async function deletephonenumber(page, properties) {
-    await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
+    let host = 'https://' + new url.URL(await page.url()).host;
+    
+    await page.goto(host + '/connect/numbers');
     await page.waitFor(8000);
+
+    let checkbox = await page.$('awsui-checkbox[ng-model="number.selected"] > label');
+    await checkbox.click();
+    await page.waitFor(2000);
+
+    let releasebutton = await page.$('awsui-button[text="Release"] > button');
+    await releasebutton.click();
+    await page.waitFor(2000);
+
+    let removebutton = await page.$('awsui-button[text="Remove"] > button');
+    await removebutton.click();
+    await page.waitFor(2000);
 
     await debugScreenshot(page);
 }
@@ -367,6 +385,10 @@ async function createflow(page, properties) {
     await page.waitFor(5000);
 
     await debugScreenshot(page);
+
+    return {
+        'Name': properties.Name
+    };
 }
 
 exports.handler = async (event, context) => {
@@ -414,11 +436,11 @@ exports.handler = async (event, context) => {
 
             if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await login(page);
-                await createinstance(page, event.ResourceProperties);
+                response_object.Data = await createinstance(page, event.ResourceProperties);
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
-                await createflow(page, event.ResourceProperties);
+                response_object.Data = await createflow(page, event.ResourceProperties);
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
