@@ -163,19 +163,28 @@ async function deleteinstance(page, properties) {
     await page.waitFor(3000);
 
     let checkbox = await page.$$('awsui-checkbox > label > input');
-    await checkbox[0].click();
-    await page.waitFor(200);
+    let cells = await page.$$('td > div.ellipsis-overflow.ng-scope');
+    for (var cell in cells) {
+        await page.evaluate((obj, domain) => {
+            console.log(obj);
+            if (obj.textContent.trim() == domain) {
+                obj.childNodes[1].firstChild.firstChild.click();
+            }
+        }, cells[cell], properties.Domain);
+    }
 
+    await page.waitFor(200);
     await debugScreenshot(page);
+
     console.log("Clicked checkbox");
 
     let removebutton = await page.$$('button[type="submit"]');
-    console.log(removebutton.length);
     await removebutton[1].click();
     console.log("Clicked remove");
     await page.waitFor(200);
 
-    let directory = await page.$('#awsui-textfield-1');
+    await debugScreenshot(page);
+    let directory = await page.$('input.awsui-textfield');
     await directory.press('Backspace');
     await directory.type(properties.Domain, { delay: 100 });
     await page.waitFor(200);
@@ -187,19 +196,35 @@ async function deleteinstance(page, properties) {
     await debugScreenshot(page);
 }
 
-async function deletephonenumber(page, properties) {
+async function deletephonenumber(page, phonenumber) {
     let host = 'https://' + new url.URL(await page.url()).host;
-    
+
     await page.goto(host + '/connect/numbers');
     await page.waitFor(8000);
+
+    await debugScreenshot(page);
+
+    let directory = await page.$('#search-bar');
+    await directory.press('Backspace');
+    await directory.type(phonenumber.replace(/ /g, ''), { delay: 100 }); // apparently, spaces are bad?
+    await page.waitFor(2000);
+
+    await debugScreenshot(page);
+    console.log("Checkbox");
 
     let checkbox = await page.$('awsui-checkbox[ng-model="number.selected"] > label');
     await checkbox.click();
     await page.waitFor(2000);
 
+    await debugScreenshot(page);
+    console.log("Release");
+
     let releasebutton = await page.$('awsui-button[text="Release"] > button');
     await releasebutton.click();
     await page.waitFor(2000);
+
+    await debugScreenshot(page);
+    console.log("Remove");
 
     let removebutton = await page.$('awsui-button[text="Remove"] > button');
     await removebutton.click();
@@ -445,13 +470,28 @@ exports.handler = async (event, context) => {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
+                response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Instance") {
+                await login(page);
+                await deleteinstance(page, event.ResourceProperties);
+                response_object.Data = await createinstance(page, event.ResourceProperties);
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
+                await login(page);
+                await open(page, event.ResourceProperties);
+                response_object.Data = await createflow(page, event.ResourceProperties);
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
+                await login(page);
+                await open(page, event.ResourceProperties);
+                await deletephonenumber(page, event.PhysicalResourceId);
+                response_object.Data = await claimnumber(page, event.ResourceProperties);
+                response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await login(page);
                 await deleteinstance(page, event.ResourceProperties);
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
-                await deletephonenumber(page, event.ResourceProperties);
+                await deletephonenumber(page, event.PhysicalResourceId);
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 ; // do nothing
             } else {
