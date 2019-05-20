@@ -4,6 +4,8 @@
 
 <img src="https://raw.githubusercontent.com/iann0036/amazon-connect-cfn/master/screen.png" width="588" height="689" />
 
+:exclamation: **CAUTION:** This project is currently in beta stages. Some components may not work as expected.
+
 ## Installation
 
 <a href="https://console.aws.amazon.com/cloudformation/home?#/stacks/new?&templateURL=https://s3.amazonaws.com/ianmckay-ap-southeast-2/amazonconnectprovider/custom_resource.yaml" target="_blank"><img src="https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png"></a>
