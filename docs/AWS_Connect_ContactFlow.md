@@ -85,17 +85,6 @@ The Amazon Connect contact flow resource defines the customer experience with th
 
 </dd>
 
-<dt><span class="term"><code class="code">Arn</code></span></dt>
-<dd>
-
-<p>Returns the Amazon Resource Name (ARN) of the contact flow.</p>
-
-<p>Example: <code class="code">arn:aws:connect:ap-southeast-2:123456789012:instance/11111111-1111-1111-1111-111111111111/contact-flow/22222222-2222-2222-2222-222222222222</code>
-
-</p>
-
-</dd>
-
 </dl>
 
 

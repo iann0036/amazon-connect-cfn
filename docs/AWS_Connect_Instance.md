@@ -47,17 +47,6 @@ After you create an instance, you can add further Amazon Connect resources withi
 
 </dd>
 
-<dt><span class="term"><code class="code">Arn</code></span></dt>
-<dd>
-
-<p>Returns the Amazon Resource Name (ARN) of the instance.</p>
-
-<p>Example: <code class="code">arn:aws:connect:ap-southeast-2:123456789012:instance/11111111-1111-1111-1111-111111111111</code>
-
-</p>
-
-</dd>
-
 </dl>
 
 
