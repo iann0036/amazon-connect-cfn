@@ -18,9 +18,6 @@ An assignment of a phone number connected to a contact flow.
 <p><em>Update requires</em>: <a href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement">Replacement</a></p>
 </dd>
 
-<dt><span class="term"><code class="code">Name</code></span></dt>
-<dd>
-
 <dt><span class="term"><code class="code">ContactFlow</code></span></dt>
 <dd>
 
