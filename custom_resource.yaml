@@ -57,7 +57,10 @@ Resources:
                 S3Bucket: !If
                     - S3Defined
                     - !Ref S3Bucket
-                    - !Sub 'ianmckay-${AWS::Region}'
+                    - Fn::FindInMap:
+                        - RegionMap
+                        - !Ref 'AWS::Region'
+                        - bucketname
                 S3Key: !If
                     - S3Defined
                     - !Ref S3Key
