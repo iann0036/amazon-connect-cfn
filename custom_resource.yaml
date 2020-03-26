@@ -108,7 +108,7 @@ Resources:
                     CONNECT_PASSWORD_SECRET: !Ref AmazonConnectUserPassword
                     DEBUG_BUCKET: !Ref DebugBucket
                     ACCOUNTID: !Ref AWS::AccountId
-            Runtime: nodejs8.10
+            Runtime: nodejs12.x
             MemorySize: 1024
             Timeout: 900
     
