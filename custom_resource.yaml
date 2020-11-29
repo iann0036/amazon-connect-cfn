@@ -80,7 +80,7 @@ Resources:
         Properties:
             UserName: AmazonConnectAutomationUser
             ManagedPolicyArns:
-              - arn:aws:iam::aws:policy/AmazonConnectFullAccess
+              - arn:aws:iam::aws:policy/AmazonConnect_FullAccess
             LoginProfile:
                 Password: !Sub "{{resolve:secretsmanager:${AmazonConnectUserPassword}:SecretString:password}}"
                 PasswordResetRequired: false
