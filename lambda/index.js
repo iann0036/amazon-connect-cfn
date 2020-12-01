@@ -510,18 +510,19 @@ async function createflow(page, properties) {
     console.log('SAVING');
     let savebutton = await page.$('#saveContactFlowButton');
     await savebutton.click();
-    await page.waitFor(200);
+    await page.waitFor(3000);
  
+    await debugScreenshot(page);
     let saveandpublishbutton = await page.$('#publishContactFlowButton');
     await saveandpublishbutton.click();
- 
+    await debugScreenshot(page);
     await page.waitFor(5000);
 
-    let confirmPublish = await page.$('html body#body.awsui-modal-open div#bodyContainer div.container-fluid div.row-fluid div#angularContainer.paper-div.ng-scope div.awsui awsui-modal#contactflowPublishModal div.awsui-modal-__state-showing.awsui-modal-container div.awsui-modal-dialog.awsui-modal-size-medium div.awsui-modal-content div.awsui-modal-footer div span.ng-scope div awsui-button.awsui-util-f-r button.awsui-button.awsui-button-size-normal.awsui-button-variant-primary.awsui-hover-child-icons');
+    let confirmPublish = await page.$('div.awsui-modal-__state-showing:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1) > awsui-button:nth-child(1)');
     console.debug('CLICK CONFIRM');
     await debugScreenshot(page);
     try {
-        await confirmPublish.slick();
+        await confirmPublish.click();
     } catch(err) {
         console.error('CONFIRM FAIL', err);
     }
