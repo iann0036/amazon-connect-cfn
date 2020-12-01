@@ -244,7 +244,7 @@ async function claimnumber(page, properties) {
     await page.goto(host + '/connect/numbers/claim');
     await page.waitFor(5000);
 
-    // await debugScreenshot(page);
+    await debugScreenshot(page);
 
     await page.waitFor(3000);
 
@@ -253,7 +253,7 @@ async function claimnumber(page, properties) {
     try {
         await did.click();
     } catch(err) {
-        console.error('DID FAILED', JSON.stringify(err));
+        console.error('DID FAILED', err);
     }
 
     await page.waitFor(200);
@@ -263,24 +263,24 @@ async function claimnumber(page, properties) {
     try {
         await ccinput.click();
     } catch(err) {
-        console.error('CCINPUT FAILED', JSON.stringify(err));
+        console.error('CCINPUT FAILED', err);
     }
 
     await page.waitFor(200);
                                    
     let countryitem = await page.$('div.active > span.country-code-input.ng-scope > ul > li:last-child');
+    
     console.debug('CLICK COUNTRY ITEM');
-
     try {
         await countryitem.click();
     } catch(err) {
-        console.error('COUNTRYITEM Failed', JSON.stringify(err));
+        console.error('COUNTRYITEM Failed', err);
     }
 
     await page.waitFor(5000);
     let phonenumberselection = await page.$('div.tab-pane:nth-child(2) > awsui-radio-group:nth-child(3) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1) > awsui-radio-button:nth-child(1) > label:nth-child(1) > div:nth-child(2)');
 
-    console.debug('PHONENUMBER');
+    console.debug('CLICK PHONENUMBER');
     await debugScreenshot(page);
     try {
         await phonenumberselection.click();
@@ -292,21 +292,7 @@ async function claimnumber(page, properties) {
     console.debug('PhoneNumber:', phonenumber);
     let phonenumbertext = await page.evaluate(el => el.textContent, phonenumber);
 
-    await page.waitFor(200);
-
-    // await debugScreenshot(page);
-
-/*     let disclaimerlink = await page.$('div.tab-pane.ng-scope.active > div.alert.alert-warning.ng-scope > a');
-    if (disclaimerlink !== null) {
-        console.debug('CLICK DISCLAIMER LINK');
-        try {
-            disclaimerlink.click();
-        } catch(err) {
-            console.error('DISCLAIMER FAILED', JSON.stringify(err));
-        }
-    } */
-
-    await page.waitFor(200);
+    await page.waitFor(1000);
 
     await debugScreenshot(page);
 
@@ -315,7 +301,7 @@ async function claimnumber(page, properties) {
     try {
         await s2id.click();
     } catch(err) {
-        console.error('s2id Failed', JSON.stringify(err));
+        console.error('s2id Failed', err);
     }
     await page.waitFor(2000);
 
@@ -335,7 +321,7 @@ async function claimnumber(page, properties) {
     try {
         await savenumber.click();
     } catch(err) {
-        console.error('SAVENUMBER Failed', JSON.stringify(err));
+        console.error('SAVENUMBER Failed', err);
     }
     await page.waitFor(5000);
 
@@ -505,7 +491,6 @@ async function createflow(page, properties) {
  
     await debugScreenshot(page);
  
-    // await dropdown.click();
     await page.waitFor(200);
     console.log('SAVING');
     let savebutton = await page.$('#saveContactFlowButton');
@@ -528,8 +513,6 @@ async function createflow(page, properties) {
     }
     await page.waitFor(5000);
     await debugScreenshot(page);
- 
-    // await debugScreenshot(page);
  
     return {
         'Name': properties.Name
@@ -580,7 +563,6 @@ exports.handler = async (event, context) => {
             let page = await browser.newPage();
 
             if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-                // response_object.Data = await createConnectInstance(event.ResourceProperties);
                 await login(page);
                 response_object.Data = await createinstance(page, event.ResourceProperties);
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
@@ -593,10 +575,9 @@ exports.handler = async (event, context) => {
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-                // await login(page);
-                // await deleteinstance(page, event.ResourceProperties);
+
                 await deleteConnectInstance(event.ResourceProperties);
-                response_object.Data = await createConnectInstance(event.ResourceProperties);
+                response_object.Data = await createinstance(event.ResourceProperties);
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
@@ -608,7 +589,7 @@ exports.handler = async (event, context) => {
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-                // await login(page);
+
                 await deleteConnectInstance(event.ResourceProperties);
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
