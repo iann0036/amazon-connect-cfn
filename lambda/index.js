@@ -8,6 +8,8 @@ const url = require('url');
 var rp = require('request-promise');
 
 var s3 = new AWS.S3();
+const connect = new AWS.Connect();
+const instanceInfo = {};
 
 const uploadResult = async (url, data) => {
     await rp({ url: url, method: 'PUT', body: JSON.stringify(data) });
@@ -118,7 +120,7 @@ async function createinstance(page, properties) {
     let finish = await page.$('button[type="submit"].awsui-button-variant-primary');
     finish.click();
 
-    await page.waitForSelector('div.launch-page-login-link', {timeout: 180000});
+    await page.waitForSelector('div.launch-page-login-link', { timeout: 180000 });
 
     await debugScreenshot(page);
 
@@ -154,7 +156,7 @@ async function open(page, properties) {
     await debugScreenshot(page);
 }
 
-async function deleteinstance(page, properties) {
+/*async function deleteinstance(page, properties) {
     await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
     await page.waitFor(8000);
 
@@ -194,7 +196,7 @@ async function deleteinstance(page, properties) {
     await page.waitFor(5000);
 
     await debugScreenshot(page);
-}
+}*/
 
 async function deletephonenumber(page, phonenumber) {
     let host = 'https://' + new url.URL(await page.url()).host;
@@ -234,6 +236,7 @@ async function deletephonenumber(page, phonenumber) {
 }
 
 async function claimnumber(page, properties) {
+    console.debug('PROPERTIES', JSON.stringify(properties));
     let host = 'https://' + new url.URL(await page.url()).host;
 
     console.log(host + '/connect/numbers/claim');
@@ -246,55 +249,80 @@ async function claimnumber(page, properties) {
     await page.waitFor(3000);
 
     let did = await page.$('li[heading="DID (Direct Inward Dialing)"] > a');
-    await did.click();
-
-    await page.waitFor(200);
-
-    let ccinput = await page.$('div.active > span > div.country-code-real-input');
-    await ccinput.click();
-
-    await page.waitFor(200);
-
-    let countryitem = await page.$('div.active > span.country-code-input.ng-scope > ul > li:nth-child(1)');
-    await countryitem.click();
-
-    await page.waitFor(5000);
-
-    let phonenumberselection = await page.$('div.active > awsui-radio-group > div > span > div:nth-child(1) > awsui-radio-button > label.awsui-radio-button-wrapper-label > div');
-    await phonenumberselection.click();
-    let phonenumber = await page.$('div.active > awsui-radio-group > div > span > div:nth-child(1) > awsui-radio-button > label.awsui-radio-button-checked.awsui-radio-button-label > div > span > div');
-    let phonenumbertext = await page.evaluate(el => el.textContent, phonenumber);
-
-    await page.waitFor(200);
-
-    await debugScreenshot(page);
-
-    let disclaimerlink = await page.$('div.tab-pane.ng-scope.active > div.alert.alert-warning.ng-scope > a');
-    if (disclaimerlink !== null) {
-        disclaimerlink.click();
+    console.debug('CLICK DID Button');
+    try {
+        await did.click();
+    } catch(err) {
+        console.error('DID FAILED', err);
     }
 
     await page.waitFor(200);
 
+    let ccinput = await page.$('div.active > span > div.country-code-real-input');
+    console.debug('CLICK CCINPUT');
+    try {
+        await ccinput.click();
+    } catch(err) {
+        console.error('CCINPUT FAILED', err);
+    }
+
+    await page.waitFor(200);
+                                   
+    let countryitem = await page.$('div.active > span.country-code-input.ng-scope > ul > li:last-child');
+    
+    console.debug('CLICK COUNTRY ITEM');
+    try {
+        await countryitem.click();
+    } catch(err) {
+        console.error('COUNTRYITEM Failed', err);
+    }
+
+    await page.waitFor(5000);
+    let phonenumberselection = await page.$('div.tab-pane:nth-child(2) > awsui-radio-group:nth-child(3) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1) > awsui-radio-button:nth-child(1) > label:nth-child(1) > div:nth-child(2)');
+
+    console.debug('CLICK PHONENUMBER');
+    await debugScreenshot(page);
+    try {
+        await phonenumberselection.click();
+    } catch(err) {
+        console.error('PHONENUMBER Failed', err);
+    }  
+    await debugScreenshot(page);
+    let phonenumber = await page.$('.awsui-radio-button-checked > div:nth-child(1) > span:nth-child(1) > div:nth-child(1)');
+    console.debug('PhoneNumber:', phonenumber);
+    let phonenumbertext = await page.evaluate(el => el.textContent, phonenumber);
+
+    await page.waitFor(1000);
+
     await debugScreenshot(page);
 
     let s2id = await page.$('#s2id_select-width > a');
-    await s2id.click();
+    console.debug('CLICK s2id');
+    try {
+        await s2id.click();
+    } catch(err) {
+        console.error('s2id Failed', err);
+    }
     await page.waitFor(2000);
 
     await debugScreenshot(page);
 
     let s2input = await page.$('#select2-drop > div > input');
     await s2input.press('Backspace');
-    await s2input.type("myFlow", { delay: 100 });
+    await s2input.type(properties.ContactFlow, { delay: 100 });
     await page.waitFor(2000);
     await s2input.press('Enter');
     await page.waitFor(1000);
 
     await debugScreenshot(page);
 
-    let savenumber = await page.$('awsui-button[text="Save"] > button');
-    await savenumber.click();
+    let savenumber = await page.$('awsui-button.table-bottom-left-button:nth-child(10)');
+    console.debug('CLICK SAVENUMBER');
+    try {
+        await savenumber.click();
+    } catch(err) {
+        console.error('SAVENUMBER Failed', err);
+    }
     await page.waitFor(5000);
 
     await debugScreenshot(page);
@@ -304,34 +332,91 @@ async function claimnumber(page, properties) {
     };
 }
 
+async function createConnectInstance(properties) {
+    const params = {
+        IdentityManagementType: 'CONNECT_MANAGED',
+        InboundCallsEnabled: true,
+        OutboundCallsEnabled: true,
+        InstanceAlias: properties.Domain
+    };
+    console.debug('CREATE PARAMS', JSON.stringify(params));
+    try {
+        const instanceRes = await connect.createInstance(params).promise();
+        if(instanceRes.err) {
+            console.error('CreateInstance Failed', JSON.stringify(instanceRes.err));
+            console.error('RAW', instanceRes.err);
+        }
+        console.debug('instanceRes', JSON.stringify(instanceRes));
+        instanceInfo.instanceId = instanceRes.Id;
+    } catch (err) {
+        console.error('CreateInstance Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+    return {
+        'Domain': properties.Domain
+    };
+}
+
+async function deleteConnectInstance(properties) {
+    let toDelete;
+    try {
+        const instances = await connect.listInstances({}).promise();
+        console.debug('INSTANCES', JSON.stringify(instances));
+        if(instances.err) {
+            console.error('ListInstances Failed', JSON.stringify(err));
+            console.error('RAW', err);
+        }
+        toDelete = instances.InstanceSummaryList.filter(x => x.InstanceAlias === properties.Domain)[0];
+    } catch(err) {
+        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+
+    try {
+        const params = {
+            InstanceId: toDelete.Id
+        };
+        console.debug('DELETION PARAMS', JSON.stringify(params));
+        await connect.deleteInstance(params).promise();
+    } catch(err) {
+        console.error('DeleteInstance Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+}
+
 async function createflow(page, properties) {
     let host = 'https://' + new url.URL(await page.url()).host;
-    
+    console.log('HOST', host);
+    console.log('PROPERTIES:', JSON.stringify(properties));
+ 
     do {
         await page.goto(host + "/connect/contact-flows/create?type=contactFlow");
         await page.waitFor(5000);
         console.log("Checking for correct load");
         console.log(host + "/connect/contact-flows/create?type=contactFlow");
     } while (await page.$('#angularContainer') === null);
-
+ 
     await debugScreenshot(page);
-
-    let dropdown = await page.$('#can-edit-contact-flow > div > awsui-button > button');
+ 
+    let dropdown = await page.$('#can-edit-contact-flow > div.cf-dropdown-btn.dropdown.awsui > awsui-button > button');
     console.log(dropdown);
     await dropdown.click();
-
+ 
     await page.waitFor(200);
-
+ 
     await debugScreenshot(page);
-
-    let importbutton = await page.$('li[ng-if="cfImportExport"]');
+ 
+    let importbutton = await page.$('#cf-dropdown > li:nth-child(2) > a');
     console.log(importbutton);
     await importbutton.click();
-
+ 
     await page.waitFor(500);
-
+ 
     await debugScreenshot(page);
-
+ 
     await new Promise(function (resolve, reject) {
         var itemcount = 1;
         var startstate = properties.States[0].Id;
@@ -340,7 +425,7 @@ async function createflow(page, properties) {
                 startstate = state.Id;
             }
         });
-
+ 
         fs.writeFile("/tmp/flow.json", `{
     "modules": [${properties.States.map(state => `{
         "id": "${state.Id}",
@@ -375,42 +460,60 @@ async function createflow(page, properties) {
         "status": "saved"
     }
 }`, function (err) {
-                if (err) {
-                    return console.log(err);
-                }
-
-                console.log("The file was saved!");
-                resolve();
-            });
+            if (err) {
+                return console.log(err);
+            }
+ 
+            console.log("The file was saved!");
+            resolve();
+        });
     });
-
+ 
+    console.log('Ready to Upload File');
     let fileinput = await page.$('#import-cf-file');
-    console.log(fileinput);
-    await fileinput.uploadFile('/tmp/flow.json');
-
+    
+    console.log('FILE', fileinput);
+    await debugScreenshot(page);
+    try {
+        const res = await fileinput.uploadFile('/tmp/flow.json');
+        console.debug('UPLOAD RES:', JSON.stringify(res));
+    } catch(err) {
+        console.error('COULD NOT UPLOAD', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+ 
     await page.waitFor(5000);
-
-    let doimport = await page.$('awsui-button[text="Import"] > button');
+ 
+    let doimport = await page.$('div.awsui-modal-__state-showing:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1) > awsui-button:nth-child(1)');
     await doimport.click();
-
+ 
     await page.waitFor(5000);
-
+ 
     await debugScreenshot(page);
-
-    await dropdown.click();
+ 
     await page.waitFor(200);
-
-    let savebutton = await page.$('#cf-dropdown > li:nth-child(1) > a');
+    console.log('SAVING');
+    let savebutton = await page.$('#saveContactFlowButton');
     await savebutton.click();
-    await page.waitFor(200);
-
-    let saveandpublishbutton = await page.$('awsui-button[text="Save & publish"] > button');
+    await page.waitFor(3000);
+ 
+    await debugScreenshot(page);
+    let saveandpublishbutton = await page.$('#publishContactFlowButton');
     await saveandpublishbutton.click();
-
+    await debugScreenshot(page);
     await page.waitFor(5000);
 
+    let confirmPublish = await page.$('div.awsui-modal-__state-showing:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > div:nth-child(1) > span:nth-child(1) > div:nth-child(1) > awsui-button:nth-child(1)');
+    console.debug('CLICK CONFIRM');
     await debugScreenshot(page);
-
+    try {
+        await confirmPublish.click();
+    } catch(err) {
+        console.error('CONFIRM FAIL', err);
+    }
+    await page.waitFor(5000);
+    await debugScreenshot(page);
+ 
     return {
         'Name': properties.Name
     };
@@ -472,13 +575,13 @@ exports.handler = async (event, context) => {
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-                await login(page);
-                await deleteinstance(page, event.ResourceProperties);
-                response_object.Data = await createinstance(page, event.ResourceProperties);
+
+                await deleteConnectInstance(event.ResourceProperties);
+                response_object.Data = await createinstance(event.ResourceProperties);
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
-                response_object.Data = await createflow(page, event.ResourceProperties);
+                response_object.Data = await createContactFlows(event.ResourceProperties);
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
@@ -486,8 +589,8 @@ exports.handler = async (event, context) => {
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-                await login(page);
-                await deleteinstance(page, event.ResourceProperties);
+
+                await deleteConnectInstance(event.ResourceProperties);
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
