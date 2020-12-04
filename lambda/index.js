@@ -78,59 +78,6 @@ async function login(page) {
     await page.waitFor(5000);
 }
 
-async function createinstance(page, properties) {
-    await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/onboarding');
-    await page.waitFor(5000);
-
-    let directory = await page.$('input[ng-model="ad.directoryAlias"]');
-    await directory.press('Backspace');
-    await directory.type(properties.Domain, { delay: 100 });
-
-    page.focus('button.awsui-button-variant-primary');
-    let next1 = await page.$('button.awsui-button-variant-primary');
-    next1.click();
-
-    await page.waitForSelector('label.vertical-padding.option-label');
-    await page.waitFor(200);
-    let skipradio = await page.$$('label.vertical-padding.option-label');
-    skipradio.pop().click();
-
-    await page.waitFor(200);
-
-    let next2 = await page.$('button[type="submit"].awsui-button-variant-primary');
-    next2.click();
-
-    await page.waitFor(200);
-
-    let next3 = await page.$('button[type="submit"].awsui-button-variant-primary');
-    next3.click();
-
-    await page.waitFor(200);
-
-    let next4 = await page.$('button[type="submit"].awsui-button-variant-primary');
-    next4.click();
-
-    await page.waitFor(200);
-
-    let next5 = await page.$('button[type="submit"].awsui-button-variant-primary');
-    next5.click();
-
-    await page.waitFor(200);
-
-    let finish = await page.$('button[type="submit"].awsui-button-variant-primary');
-    finish.click();
-
-    await page.waitForSelector('div.launch-page-login-link', { timeout: 180000 });
-
-    await debugScreenshot(page);
-
-    await page.waitFor(120000);
-
-    return {
-        'Domain': properties.Domain
-    };
-}
-
 async function open(page, properties) {
     await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
     await page.waitFor(8000);
@@ -155,48 +102,6 @@ async function open(page, properties) {
 
     await debugScreenshot(page);
 }
-
-/*async function deleteinstance(page, properties) {
-    await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
-    await page.waitFor(8000);
-
-    await debugScreenshot(page);
-
-    await page.waitFor(3000);
-
-    let checkbox = await page.$$('awsui-checkbox > label > input');
-    let cells = await page.$$('td > div.ellipsis-overflow.ng-scope');
-    for (var cell in cells) {
-        await page.evaluate((obj, domain) => {
-            console.log(obj);
-            if (obj.textContent.trim() == domain) {
-                obj.childNodes[1].firstChild.firstChild.click();
-            }
-        }, cells[cell], properties.Domain);
-    }
-
-    await page.waitFor(200);
-    await debugScreenshot(page);
-
-    console.log("Clicked checkbox");
-
-    let removebutton = await page.$$('button[type="submit"]');
-    await removebutton[1].click();
-    console.log("Clicked remove");
-    await page.waitFor(200);
-
-    await debugScreenshot(page);
-    let directory = await page.$('input.awsui-textfield');
-    await directory.press('Backspace');
-    await directory.type(properties.Domain, { delay: 100 });
-    await page.waitFor(200);
-
-    let confirm = await page.$('awsui-button[click="confirmDeleteOrg()"] > button');
-    await confirm.click();
-    await page.waitFor(5000);
-
-    await debugScreenshot(page);
-}*/
 
 async function deletephonenumber(page, phonenumber) {
     let host = 'https://' + new url.URL(await page.url()).host;
@@ -563,8 +468,7 @@ exports.handler = async (event, context) => {
             let page = await browser.newPage();
 
             if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-                await login(page);
-                response_object.Data = await createinstance(page, event.ResourceProperties);
+                response_object.Data = await createConnectInstance(event.ResourceProperties);
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
@@ -575,9 +479,8 @@ exports.handler = async (event, context) => {
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Instance") {
-
                 await deleteConnectInstance(event.ResourceProperties);
-                response_object.Data = await createinstance(event.ResourceProperties);
+                response_object.Data = await createConnectInstance(event.ResourceProperties);
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);

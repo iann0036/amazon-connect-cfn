@@ -125,6 +125,8 @@ Resources:
                     Action:
                       - sts:AssumeRole
             Path: /
+            ManagedPolicyArns:
+              - arn:aws:iam::aws:policy/AmazonConnect_FullAccess
             Policies:
               - PolicyName: root
                 PolicyDocument:
