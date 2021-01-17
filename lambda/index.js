@@ -12,6 +12,7 @@ const connect = new AWS.Connect();
 const lex = new AWS.LexModelBuildingService();
 const instanceInfo = {};
 
+// Debug Funcs
 const uploadResult = async (url, data) => {
     await rp({ url: url, method: 'PUT', body: JSON.stringify(data) });
 }
@@ -42,6 +43,7 @@ const debugScreenshot = async (page) => {
     });
 };
 
+// Pupeteer Funcs
 async function login(page) {
     var secretsmanager = new AWS.SecretsManager();
     var passwordstr = "";
@@ -104,6 +106,7 @@ async function open(page, properties) {
     await debugScreenshot(page);
 }
 
+// Phone Number CRUD Funcs
 async function deletephonenumber(page, phonenumber) {
     let host = 'https://' + new url.URL(await page.url()).host;
 
@@ -238,6 +241,7 @@ async function claimnumber(page, properties) {
     };
 }
 
+// Connect Instance CRUD Funcs
 async function createConnectInstance(properties) {
     const params = {
         IdentityManagementType: 'CONNECT_MANAGED',
@@ -293,6 +297,7 @@ async function deleteConnectInstance(properties) {
     }
 }
 
+// Contact Flow CRUD Funcs
 async function createflow(page, properties) {
     let host = 'https://' + new url.URL(await page.url()).host;
     console.log('HOST', host);
@@ -425,6 +430,8 @@ async function createflow(page, properties) {
     };
 }
 
+
+// Lexbot Helper Funcs
 function genMsg(content, contentType, groupNumber) {
     return { content, contentType, groupNumber };
 }
@@ -434,6 +441,39 @@ function genIntent(intentName, intentVersion) {
 function genTag(key, value) {
     return { key, value };
 }
+function genOutputCtxt(name, timeToLiveInSeconds, turnsToLive) {
+    return { name, timeToLiveInSeconds, turnsToLive };
+}
+function genSlot(name, 
+                 slotConstraint, 
+                 defaultValueList, 
+                 description,
+                 obfuscationSetting,
+                 priority,
+                 responseCard,
+                 sampleUtterances,
+                 slotType,
+                 slotTypeVersion,
+                 valueElicitationPrompt) {
+                    return { name, 
+                             slotConstraint, 
+                             defaultValueSpec: { defaultValueList: defaultValueList.map(x => { return { defaultValue: x } })},
+                             description,
+                             obfuscationSetting,
+                             priority,
+                             responseCard,
+                             sampleUtterances,
+                             slotType,
+                             slotTypeVersion,
+                             valueElicitationPrompt: {
+                                maxAttempts: valueElicitationPrompt.MaxAttempts,
+                                messages: valueElicitationPrompt.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                                responseCard: valueElicitationPrompt.ResponseCard
+                             }
+                    }
+}
+
+// Lexbot CRUD Funcs
 async function createLexChatbot(properties) {
     const botParams = {
         name: properties.Name,
@@ -577,6 +617,212 @@ async function deleteLexChatbot(properties) {
     };
 }
 
+// Lex Intent CRUD Funcs
+async function createLexIntent(properties) {
+    const params = {
+        name: properties.IntentName,
+        conclusionStatement: {
+            messages: properties.ConclusionStatements.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+            responseCard: properties.ConclusionResponseCard
+        },
+        confirmationPrompt: {
+            maxAttempts: properties.ConfirmationMaxAttempts,
+            messages: properties.ConfirmationPrompts.map(x => genMsg(x.Contnet, x.ContentType, x.GroupNumber)),
+            responseCard: properties.ConfirmationResponseCard
+        },
+        createVersion: properties.CreateVersion,
+        description: properties.Description,
+        dialogCodeHook: {
+            messageVersion: properties.DialogCodeHook.MessageVersion,
+            uri: properties.DialogCodeHook.uri
+        },
+        followUpPrompt: {
+            prompt: {
+                maxAttempts: properties.FollowUpPrompt.MaxAttempts,
+                messages: properties.DialogCodeHook.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                responseCard: properties.FollowUpPrompt.ResponseCard
+            },
+            rejectionStatement: {
+                messages: properties.RejectionStatement.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                responseCard: properties.RejectionStatement.ResponseCard
+            }
+        },
+        fulfillmentActivity: {
+            type: properties.FulfillmentActivity.Type,
+            codeHook: {
+                messageVersion: properties.FulfillmentActivity.CodeHook.MessageVersion,
+                uri: properties.FulfillmentActivity.CodeHook.Uri
+            }
+        },
+        inputContexts: properties.InputContexts.map(x => {return { name: x.Name } }),
+        kendraConfiguration: {
+            kendraIndex: properties.KendraConfiguration.KendraIndex,
+            role: properties.KendraConfiguration.Role,
+            queryFilterString: properties.KendraConfiguration.QueryFilterString
+        },
+        outputContexts: properties.OutputContexts.map(x => genOutputCtxt(x.Name, x.TTLInSeconds, x.TurnsToLive)),
+        parentIntentSignature: properties.ParentIntentSignature,
+        rejectionStatement: {
+            messages: properties.RejectionStatement.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+            responseCard: properties.RejectionStatement.ResponseCard
+        },
+        sampleUtterances: properties.SampleUtterances,
+        slots: properties.Slots.map(x => genSlot(x.Name, 
+                                                 x.SlotConstraint, 
+                                                 x.DefaultValueList, 
+                                                 x.Description,
+                                                 x.ObfuscationSetting,
+                                                 x.Priority,
+                                                 x.ResponseCard,
+                                                 x.SampleUtterances,
+                                                 x.SlotType,
+                                                 x.SlotTypeVersion,
+                                                 x.ValueElicitationPrompt))
+    };
+
+    // create Intent
+    const data = {};
+    try {
+        const res = await lex.putIntent(params).promise();
+        console.debug('CreateIntent Response', JSON.stringify(res));
+    } catch(err) {
+        console.error('Failed to PutIntent', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+}
+
+async function updateLexIntent(properties) {
+    const params = {
+        name: properties.IntentName,
+        conclusionStatement: {
+            messages: properties.ConclusionStatements.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+            responseCard: properties.ConclusionResponseCard
+        },
+        confirmationPrompt: {
+            maxAttempts: properties.ConfirmationMaxAttempts,
+            messages: properties.ConfirmationPrompts.map(x => genMsg(x.Contnet, x.ContentType, x.GroupNumber)),
+            responseCard: properties.ConfirmationResponseCard
+        },
+        createVersion: properties.CreateVersion,
+        description: properties.Description,
+        dialogCodeHook: {
+            messageVersion: properties.DialogCodeHook.MessageVersion,
+            uri: properties.DialogCodeHook.uri
+        },
+        followUpPrompt: {
+            prompt: {
+                maxAttempts: properties.FollowUpPrompt.MaxAttempts,
+                messages: properties.DialogCodeHook.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                responseCard: properties.FollowUpPrompt.ResponseCard
+            },
+            rejectionStatement: {
+                messages: properties.RejectionStatement.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                responseCard: properties.RejectionStatement.ResponseCard
+            }
+        },
+        fulfillmentActivity: {
+            type: properties.FulfillmentActivity.Type,
+            codeHook: {
+                messageVersion: properties.FulfillmentActivity.CodeHook.MessageVersion,
+                uri: properties.FulfillmentActivity.CodeHook.Uri
+            }
+        },
+        inputContexts: properties.InputContexts.map(x => {return { name: x.Name } }),
+        kendraConfiguration: {
+            kendraIndex: properties.KendraConfiguration.KendraIndex,
+            role: properties.KendraConfiguration.Role,
+            queryFilterString: properties.KendraConfiguration.QueryFilterString
+        },
+        outputContexts: properties.OutputContexts.map(x => genOutputCtxt(x.Name, x.TTLInSeconds, x.TurnsToLive)),
+        parentIntentSignature: properties.ParentIntentSignature,
+        rejectionStatement: {
+            messages: properties.RejectionStatement.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+            responseCard: properties.RejectionStatement.ResponseCard
+        },
+        sampleUtterances: properties.SampleUtterances,
+        slots: properties.Slots.map(x => genSlot(x.Name, 
+                                                 x.SlotConstraint, 
+                                                 x.DefaultValueList, 
+                                                 x.Description,
+                                                 x.ObfuscationSetting,
+                                                 x.Priority,
+                                                 x.ResponseCard,
+                                                 x.SampleUtterances,
+                                                 x.SlotType,
+                                                 x.SlotTypeVersion,
+                                                 x.ValueElicitationPrompt))
+    };
+
+    // create Intent
+    const data = {};
+    try {
+        const res = await lex.putIntent(params).promise();
+        console.debug('CreateIntent Response', JSON.stringify(res));
+    } catch(err) {
+        console.error('Failed to PutIntent', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+}
+
+async function deleteLexIntent(properties) {
+    try {
+        await lex.deleteIntent({name: properties.Name}).promise();
+    } catch (err) {
+        console.error('Failed to Delete Intent', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+}
+
+// Lex SlotType CRUD Funcs
+async function createLexSlotType(properties) {
+    const params = {
+        name: properties.Name,
+        createVersion: properties.CreateVersion,
+        description: properties.Description,
+        enumerationValues: properties.EnumerationValues.map(x => genEnumVal(x.Value, x.Synonyms)),
+        parentSlotTypeSignature: properties.ParentSlotTypeSignature,
+        slotTypeConfigurations: properties.SlotTypeConfigurations.map(x => genSlotTypeConfig(x.Pattern)),
+        valueSelectionStrategy: properties.ValueSelectionStrategy
+    };
+
+    // create slot type
+    try {
+        await lex.putSlotType(params).promise();
+    } catch(err) {
+        console.error('Put SlotType Failed', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+}
+
+async function updateLexSlotType(properties) {
+    const params = {
+        name: properties.Name,
+        createVersion: properties.CreateVersion,
+        description: properties.Description,
+        enumerationValues: properties.EnumerationValues.map(x => genEnumVal(x.Value, x.Synonyms)),
+        parentSlotTypeSignature: properties.ParentSlotTypeSignature,
+        slotTypeConfigurations: properties.SlotTypeConfigurations.map(x => genSlotTypeConfig(x.Pattern)),
+        valueSelectionStrategy: properties.ValueSelectionStrategy
+    };
+
+    // update slot type
+    try {
+        await lex.putSlotType(params).promise();
+    } catch(err) {
+        console.error('Put SlotType Failed', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+}
+
+async function deleteLexSlotType(properties) {
+    try {
+        await lex.deleteSlotType({name: properties.Name}).promise();
+    } catch(err) {
+        console.error('Failed to Delete SlotType', JSON.stringify(err));
+        console.error('RAW', err);
+    }
+}
+
 exports.handler = async (event, context) => {
     let result = null;
     let browser = null;
@@ -641,6 +887,14 @@ exports.handler = async (event, context) => {
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
                 response_object.Data = await createLexChatbot(event.ResourceProperties);
 
+            // CREATE LEX INTENT
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexIntent") {
+                response_object.Data = await createLexIntent(event.ResourceProperties);
+
+            // CREATE LEX SLOTTYPE
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexSlotType") {
+                response_object.Data = await createLexSlotType(event.ResourceProperties);
+
             // UPDATE CONNECT INSTANCE
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await deleteConnectInstance(event.ResourceProperties);
@@ -662,7 +916,15 @@ exports.handler = async (event, context) => {
 
             // UPDATE LEX CHATBOT
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
-                requestObject.Data = await updateLexChatbot(event.ResourceProperties);
+                response_object.Data = await updateLexChatbot(event.ResourceProperties);
+
+            // UPDATE LEX INTENT
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexIntent") {
+                response_object.Data = await updateLexIntent(event.ResourceProperties);
+
+            // UPDATE LEX SLOTTYPE
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexSlotType") {
+                response_object.Data = await updateLexSlotType(event.ResourceProperties);
 
             // DELETE CONNECT INSTANCE
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
@@ -681,6 +943,15 @@ exports.handler = async (event, context) => {
             // DELETE LEX CHATBOT
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
                 await deleteLexChatbot(event.ResourceProperties);
+
+            // DELETE LEX INTENT
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexIntent") {
+                await deleteLexIntent(event.ResourceProperties);
+
+            // DELETE LEX SLOTTYPE
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexSlotType") {
+                await deleteLexSlotType(event.ResourceProperties);
+            // default response
             } else {
                 throw "Unknown action";
             }
