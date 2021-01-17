@@ -9,6 +9,7 @@ var rp = require('request-promise');
 
 var s3 = new AWS.S3();
 const connect = new AWS.Connect();
+const lex = new AWS.LexModelBuildingService();
 const instanceInfo = {};
 
 const uploadResult = async (url, data) => {
@@ -424,6 +425,158 @@ async function createflow(page, properties) {
     };
 }
 
+function genMsg(content, contentType, groupNumber) {
+    return { content, contentType, groupNumber };
+}
+function genIntent(intentName, intentVersion) {
+    return { intentName, intentVersion };
+}
+function genTag(key, value) {
+    return { key, value };
+}
+async function createLexChatbot(properties) {
+    const botParams = {
+        name: properties.Name,
+        abortStatement: {
+            messages: properties.abortStatements.map(x => genMsg(x)),
+            responseCard: properties.AbortResponseCard
+        },
+        childDirected: properties.ChildDirected,
+        clarificationPrompt: {
+            maxAttempts: properties.ClarificationAttempts,
+            messages: clarificationPrompts.map(x => genMsg(x)),
+            responseCard: properties.ClarificationResponseCard
+        },
+        createVersion: properties.CreateVersion,
+        description: properties.Description,
+        detectSentiment: properties.DetectSentiment,
+        enableImprovements: properties.EnableImprovements,
+        idleSessionTTLInSeconds: properties.IdleSessionTTLInSeconds,
+        intents: properties.Intents.map(x => genIntent(x)),
+        nluIntentConfidenceThreshold: properties.NluIntentConfidenceThreshold,
+        locale: properties.Locale,
+        processBehavior: properties.ProcessBehavior,
+        tags: properties.Tags.map(x => genTag(x)),
+        voiceId: properties.VoiceId
+    };
+
+    // create lex chatbot
+    const bot = await lex.putBot(botParams).promise();
+
+    // get connect instance id
+    let instanceId;
+    try {
+        const instances = await connect.listInstances({}).promise();
+        console.debug('INSTANCES', JSON.stringify(instances));
+        if(instances.err) {
+            console.error('ListInstances Failed', JSON.stringify(err));
+            console.error('RAW', err);
+        }
+        instance = instances.InstanceSummaryList.filter(x => x.InstanceAlias === properties.InstanceName)[0];
+    } catch(err) {
+        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+    
+    // associate lex chatbot with connect instance
+    try {
+        await connect.associateLexBot({
+            InstanceId: instanceId,
+            LexBot: {
+                LexRegion: properties.Region,
+                Name: properties.Name
+            }
+        }).promise();
+    } catch(err) {
+        console.error('Create Lex Chatbot Failed', JSON.stringify(err));
+        console.error('RAW:', err);
+    }
+
+    // log result and return
+    console.debug('Create Lex Chatbot Result:', JSON.stringify(bot));
+    return {
+        status: bot.data.status,
+        failureReason: bot.data.failureReason,
+        checksum: bot.data.checksum
+    }
+}
+
+async function updateLexChatbot(properties) {
+    const botParams = {
+        name: properties.Name,
+        abortStatement: {
+            messages: properties.abortStatements.map(x => genMsg(x)),
+            responseCard: properties.AbortResponseCard
+        },
+        checksum: properties.Checksum,
+        childDirected: properties.ChildDirected,
+        clarificationPrompt: {
+            maxAttempts: properties.ClarificationAttempts,
+            messages: clarificationPrompts.map(x => genMsg(x)),
+            responseCard: properties.ClarificationResponseCard
+        },
+        createVersion: properties.CreateVersion,
+        description: properties.Description,
+        detectSentiment: properties.DetectSentiment,
+        enableImprovements: properties.EnableImprovements,
+        idleSessionTTLInSeconds: properties.IdleSessionTTLInSeconds,
+        intents: properties.Intents.map(x => genIntent(x)),
+        nluIntentConfidenceThreshold: properties.NluIntentConfidenceThreshold,
+        locale: properties.Locale,
+        processBehavior: properties.ProcessBehavior,
+        tags: properties.Tags.map(x => genTag(x)),
+        voiceId: properties.VoiceId
+    };
+    const bot = await lex.putBot(botParams).promise();
+    return {
+        name: bot.data.name,
+        status: bot.data.status,
+        failureReason: bot.data.failureReason,
+        checksum: bot.data.checksum
+    }
+}
+
+async function deleteLexChatbot(properties) {
+    // get connect instance id
+    let instanceId;
+    try {
+        const instances = await connect.listInstances({}).promise();
+        console.debug('INSTANCES', JSON.stringify(instances));
+        if(instances.err) {
+            console.error('ListInstances Failed', JSON.stringify(err));
+            console.error('RAW', err);
+        }
+        instance = instances.InstanceSummaryList.filter(x => x.InstanceAlias === properties.InstanceName)[0];
+    } catch(err) {
+        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+    
+    // disassociate lexbot from connect instance
+    try {
+        await connect.disassociateLexBot({}).promise();
+    } catch(err) {
+        console.error('Failed to Disassociate Lex Chatbot', JSON.stringify(err));
+        console.error('RAW:', err);
+    }
+
+    // delete lexbot
+    try {
+        await lex.deleteBot({}).promise();
+    } catch(err) {
+        console.error('Failed to Delete Lex Chatbot', JSON.stringify(err));
+        console.error('RAW:', err);
+    }
+
+    // return success
+    return {
+        status: 204,
+        message: 'success!'
+    };
+}
+
 exports.handler = async (event, context) => {
     let result = null;
     let browser = null;
@@ -467,39 +620,67 @@ exports.handler = async (event, context) => {
 
             let page = await browser.newPage();
 
+            // CREATE CONNECT INSTANCE
             if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 response_object.Data = await createConnectInstance(event.ResourceProperties);
+            
+            // CREATE CONTACT FLOW
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 response_object.Data = await createflow(page, event.ResourceProperties);
+
+            // CREATE PHONE NUMBER
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
+            
+            // CREATE LEX CHATBOT
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
+                response_object.Data = await createLexChatbot(event.ResourceProperties);
+
+            // UPDATE CONNECT INSTANCE
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await deleteConnectInstance(event.ResourceProperties);
                 response_object.Data = await createConnectInstance(event.ResourceProperties);
+
+            // UPDATE CONTACT FLOW
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 response_object.Data = await createContactFlows(event.ResourceProperties);
+
+            // UPDATE PHONE NUMBER
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 await deletephonenumber(page, event.PhysicalResourceId);
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
-            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
 
+            // UPDATE LEX CHATBOT
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
+                requestObject.Data = await updateLexChatbot(event.ResourceProperties);
+
+            // DELETE CONNECT INSTANCE
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await deleteConnectInstance(event.ResourceProperties);
+
+            // DELETE PHONE NUMBER
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
                 await open(page, event.ResourceProperties);
                 await deletephonenumber(page, event.PhysicalResourceId);
+
+            // DELETE CONTACT FLOW
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
-                ; // do nothing
+                // do nothing
+
+            // DELETE LEX CHATBOT
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
+                await deleteLexChatbot(event.ResourceProperties);
             } else {
                 throw "Unknown action";
             }
