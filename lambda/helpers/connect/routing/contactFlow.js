@@ -4,8 +4,10 @@ const fs = require('fs');
 const url = require('url');
 var rp = require('request-promise');
 
+const { debugScreenshot } = require('../../puppeteer');
+
 // Contact Flow CRUD Funcs
-module.exports = async function createflow(page, properties) {
+module.exports.createflow = async (page, properties) => {
     let host = 'https://' + new url.URL(await page.url()).host;
     console.log('HOST', host);
     console.log('PROPERTIES:', JSON.stringify(properties));

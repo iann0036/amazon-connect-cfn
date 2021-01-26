@@ -4,7 +4,7 @@ const fs = require('fs');
 const url = require('url');
 const rp = require('request-promise');
 
-const { debugScreenshot, uploadResult, login, open } = require('../../puppeteer');
+const { debugScreenshot } = require('../../puppeteer');
 
 // Queue CRUD Funcs
 module.exports.createQueue = async (page, properties) => {

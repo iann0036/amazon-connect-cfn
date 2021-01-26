@@ -1,5 +1,6 @@
 const AWS = require('aws-sdk');
 const lex = new AWS.LexModelBuildingService();
+const connect = new AWS.Connect();
 
 // Lexbot Helper Funcs
 function genMsg(content, contentType, groupNumber) {
@@ -44,7 +45,7 @@ function genSlot(name,
 }
 
 // Lexbot CRUD Funcs
-module.exports = async function createLexChatbot(properties) {
+module.exports.createLexChatbot = async (properties) => {
     const botParams = {
         name: properties.Name,
         abortStatement: {
@@ -106,7 +107,7 @@ module.exports = async function createLexChatbot(properties) {
     }
 }
 
-module.exports = async function updateLexChatbot(properties) {
+module.exports.updateLexChatbot = async (properties) => {
     const botParams = {
         name: properties.Name,
         abortStatement: {
@@ -141,7 +142,7 @@ module.exports = async function updateLexChatbot(properties) {
     }
 }
 
-module.exports = async function deleteLexChatbot(properties) {
+module.exports.deleteLexChatbot = async (properties) => {
     // get connect instance id
     let instanceId;
     try {
@@ -181,7 +182,7 @@ module.exports = async function deleteLexChatbot(properties) {
 }
 
 // Lex Intent CRUD Funcs
-module.exports = async function createLexIntent(properties) {
+module.exports.createLexIntent = async (properties) => {
     const params = {
         name: properties.IntentName,
         conclusionStatement: {
@@ -254,7 +255,7 @@ module.exports = async function createLexIntent(properties) {
     }
 }
 
-module.exports = async function updateLexIntent(properties) {
+module.exports.updateLexIntent = async (properties) => {
     const params = {
         name: properties.IntentName,
         conclusionStatement: {
@@ -327,7 +328,7 @@ module.exports = async function updateLexIntent(properties) {
     }
 }
 
-module.exports = async function deleteLexIntent(properties) {
+module.exports.deleteLexIntent = async (properties) => {
     try {
         await lex.deleteIntent({name: properties.Name}).promise();
     } catch (err) {
@@ -337,7 +338,7 @@ module.exports = async function deleteLexIntent(properties) {
 }
 
 // Lex SlotType CRUD Funcs
-module.exports = async function createLexSlotType(properties) {
+module.exports.createLexSlotType = async (properties) => {
     const params = {
         name: properties.Name,
         createVersion: properties.CreateVersion,
@@ -357,7 +358,7 @@ module.exports = async function createLexSlotType(properties) {
     }
 }
 
-module.exports = async function updateLexSlotType(properties) {
+module.exports.updateLexSlotType = async (properties) => {
     const params = {
         name: properties.Name,
         createVersion: properties.CreateVersion,
@@ -377,7 +378,7 @@ module.exports = async function updateLexSlotType(properties) {
     }
 }
 
-module.exports = async function deleteLexSlotType(properties) {
+module.exports.deleteLexSlotType = async (properties) => {
     try {
         await lex.deleteSlotType({name: properties.Name}).promise();
     } catch(err) {

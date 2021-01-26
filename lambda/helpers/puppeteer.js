@@ -39,7 +39,7 @@ module.exports.debugScreenshot = async (page) => {
 };
 
 // Pupeteer Funcs
-module.exports.login = async function(page) {
+module.exports.login = async (page) => {
     var secretsmanager = new AWS.SecretsManager();
     var passwordstr = "";
 
@@ -76,7 +76,7 @@ module.exports.login = async function(page) {
     await page.waitFor(5000);
 }
 
-module.exports.open = async function(page, properties) {
+module.exports.open = async (page, properties) => {
     await page.goto('https://' + process.env.AWS_REGION + '.console.aws.amazon.com/connect/home');
     await page.waitFor(8000);
 

@@ -26,7 +26,7 @@ module.exports.getMedCon = (Channel, Concurrency) => {
 }
 
 // Connect Instance CRUD Funcs
-module.exports.createConnectInstance = async (properties) => {
+module.exports.createConnectInstance = async (properties, instanceInfo) => {
     const params = {
         IdentityManagementType: 'CONNECT_MANAGED',
         InboundCallsEnabled: true,

@@ -2,10 +2,12 @@ const chromium = require('chrome-aws-lambda');
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const url = require('url');
-var rp = require('request-promise');
+const rp = require('request-promise');
+
+const { debugScreenshot } = require('../../puppeteer');
 
 // Phone Number CRUD Funcs
-module.exports = async function deletephonenumber(page, phonenumber) {
+module.exports.deletephonenumber = async (page, phonenumber) => {
     let host = 'https://' + new url.URL(await page.url()).host;
 
     await page.goto(host + '/connect/numbers');
@@ -42,7 +44,7 @@ module.exports = async function deletephonenumber(page, phonenumber) {
     await debugScreenshot(page);
 }
 
-module.exports = async function claimnumber(page, properties) {
+module.exports.claimnumber = async (page, properties) => {
     console.debug('PROPERTIES', JSON.stringify(properties));
     let host = 'https://' + new url.URL(await page.url()).host;
 
