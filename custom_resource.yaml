@@ -21,37 +21,37 @@ Conditions:
 Mappings:
     RegionMap:
         us-east-1:
-            bucketname: ianmckay-us-east-1
+            bucketname: harkin-us-east-1
         us-east-2:
-            bucketname: ianmckay-us-east-2
+            bucketname: harkin-us-east-2
         us-west-1:
-            bucketname: ianmckay-us-west-1
+            bucketname: harkin-us-west-1
         us-west-2:
-            bucketname: ianmckay-us-west-2
+            bucketname: harkin-us-west-2
         ap-south-1:
-            bucketname: ianmckay-ap-south-1
+            bucketname: harkin-ap-south-1
         ap-northeast-2:
-            bucketname: ianmckay-ap-northeast-2
+            bucketname: harkin-ap-northeast-2
         ap-southeast-1:
-            bucketname: ianmckay-ap-southeast-1
+            bucketname: harkin-ap-southeast-1
         ap-southeast-2:
-            bucketname: ianmckay-ap-southeast-2
+            bucketname: harkin-ap-southeast-2
         ap-northeast-1:
-            bucketname: ianmckay-ap-northeast-1
+            bucketname: harkin-ap-northeast-1
         ca-central-1:
-            bucketname: ianmckay-ca-central-1
+            bucketname: harkin-ca-central-1
         eu-central-1:
-            bucketname: ianmckay-eu-central-1
+            bucketname: harkin-eu-central-1
         eu-west-1:
-            bucketname: ianmckay-eu-west-1
+            bucketname: harkin-eu-west-1
         eu-west-2:
-            bucketname: ianmckay-eu-west-2
+            bucketname: harkin-eu-west-2
         eu-west-3:
-            bucketname: ianmckay-eu-west-3
+            bucketname: harkin-eu-west-3
         eu-north-1:
-            bucketname: ianmckay-eu-north-1
+            bucketname: harkin-eu-north-1
         sa-east-1:
-            bucketname: ianmckay-sa-east-1
+            bucketname: harkin-sa-east-1
 
 Resources:
 
@@ -85,9 +85,32 @@ Resources:
                 Password: !Sub "{{resolve:secretsmanager:${AmazonConnectUserPassword}:SecretString:password}}"
                 PasswordResetRequired: false
 
+    TransformFunctionLayer:
+        Type: AWS::Lambda::LayerVersion
+        Properties: 
+            CompatibleRuntimes: 
+                - nodejs12.x
+            Content:
+                S3Bucket: !If
+                    - S3Defined
+                    - !Ref S3Bucket
+                    - Fn::FindInMap:
+                        - RegionMap
+                        - !Ref 'AWS::Region'
+                        - bucketname
+                S3Key: !If
+                    - S3Defined
+                    - !Ref S3Key
+                    - 'layer.zip'
+            Description: Lambda layer containing pupeteer and headless chrome npm packages
+            LayerName: amazon-connect-cfn-transform-deps-layer
+            LicenseInfo: MIT
+
     TransformFunction:
         Type: AWS::Lambda::Function
         Properties:
+            Layers:
+                - !Ref TransformFunctionLayer
             Code:
                 S3Bucket: !If
                     - S3Defined
@@ -99,7 +122,7 @@ Resources:
                 S3Key: !If
                     - S3Defined
                     - !Ref S3Key
-                    - 'amazonconnectprovider/app.zip'
+                    - 'app.zip'
             Handler: index.handler
             Role: !GetAtt 'LambdaExecutionRole.Arn'
             Environment:

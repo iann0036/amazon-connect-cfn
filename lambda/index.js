@@ -241,6 +241,29 @@ async function claimnumber(page, properties) {
     };
 }
 
+// Connect Helper Funcs
+async function getInstanceId(instanceName) {
+    let instance;
+    try {
+        const instances = await connect.listInstances({}).promise();
+        console.debug('INSTANCES', JSON.stringify(instances));
+        if(instances.err) {
+            console.error('ListInstances Failed', JSON.stringify(err));
+            console.error('RAW', err);
+        }
+        instance = instances.InstanceSummaryList.filter(x => x.InstanceAlias === instanceName)[0];
+    } catch(err) {
+        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        throw err;
+    }
+    return instance.Id;
+}
+
+function genMedCon(Channel, Concurrency) {
+    return { Channel, Concurrency};
+}
+
 // Connect Instance CRUD Funcs
 async function createConnectInstance(properties) {
     const params = {
@@ -270,23 +293,17 @@ async function createConnectInstance(properties) {
 
 async function deleteConnectInstance(properties) {
     let toDelete;
-    try {
-        const instances = await connect.listInstances({}).promise();
-        console.debug('INSTANCES', JSON.stringify(instances));
-        if(instances.err) {
-            console.error('ListInstances Failed', JSON.stringify(err));
-            console.error('RAW', err);
-        }
-        toDelete = instances.InstanceSummaryList.filter(x => x.InstanceAlias === properties.Domain)[0];
+    try{
+        toDelete = await getInstanceId(properties.Domain);
     } catch(err) {
-        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('DeleteInstanceFailed', JSON.stringify(err));
         console.error('RAW', err);
         return err;
     }
 
     try {
         const params = {
-            InstanceId: toDelete.Id
+            InstanceId: toDelete
         };
         console.debug('DELETION PARAMS', JSON.stringify(params));
         await connect.deleteInstance(params).promise();
@@ -430,6 +447,53 @@ async function createflow(page, properties) {
     };
 }
 
+// Queue CRUD Funcs
+async function createQueue(page, properties) {
+
+}
+
+async function deleteQueue(page, properties) {
+
+}
+
+// Routing Profile CRUD Funcs
+async function createRoutingProfile(properties) {
+    // get connect instance id
+    let instanceId;
+    try {
+        instanceId = await getInstanceId(properties.Domain);
+    } catch(err) {
+        console.error('Failed to Create RoutingProfile', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+    
+    // set params
+    const params = {
+        DefaultOutboundQueueId: properties.DefaultOutboundQueueId,
+        Description: properties.Description,
+        InstanceId: instanceId,
+        MediaConcurrencies: properties.MediaConcurrencies.map(x => genMedCon(x.Channel, x.Concurrency)),
+        Name: properties.Name,
+        QueueConfigs: properties.QueueConfigs.map(x => genQueueConfig(x.Delay, x.Priority, x.ReferenceChannel, x.Id)),
+        Tags: properties.Tags.map(x => genTag(x.Key, x.Value))
+    };
+
+    // create routing profile
+    try {
+        await connect.createRoutingProfile(params).promise();
+    } catch(err) {
+        console.error('Failed to Create RoutingProfile', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+
+    return {
+        status: 204,
+        message: 'success!'
+    }
+}
+
 
 // Lexbot Helper Funcs
 function genMsg(content, contentType, groupNumber) {
@@ -506,15 +570,9 @@ async function createLexChatbot(properties) {
     // get connect instance id
     let instanceId;
     try {
-        const instances = await connect.listInstances({}).promise();
-        console.debug('INSTANCES', JSON.stringify(instances));
-        if(instances.err) {
-            console.error('ListInstances Failed', JSON.stringify(err));
-            console.error('RAW', err);
-        }
-        instance = instances.InstanceSummaryList.filter(x => x.InstanceAlias === properties.InstanceName)[0];
+        instanceId = await getInstanceId(properties.InstanceName);
     } catch(err) {
-        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('Associate LexBot Failed', JSON.stringify(err));
         console.error('RAW', err);
         return err;
     }
@@ -581,15 +639,9 @@ async function deleteLexChatbot(properties) {
     // get connect instance id
     let instanceId;
     try {
-        const instances = await connect.listInstances({}).promise();
-        console.debug('INSTANCES', JSON.stringify(instances));
-        if(instances.err) {
-            console.error('ListInstances Failed', JSON.stringify(err));
-            console.error('RAW', err);
-        }
-        instance = instances.InstanceSummaryList.filter(x => x.InstanceAlias === properties.InstanceName)[0];
+        instanceId = await getInstanceId(properties.InstanceName);
     } catch(err) {
-        console.error('ListInstances Failed', JSON.stringify(err));
+        console.error('Failed to Delete Lex Chatbot', JSON.stringify(err));
         console.error('RAW', err);
         return err;
     }
@@ -603,8 +655,13 @@ async function deleteLexChatbot(properties) {
     }
 
     // delete lexbot
+    const params = {
+        BotName: properties.Name,
+        InstanceId: instanceId,
+        LexRegion: properties.Region
+    };
     try {
-        await lex.deleteBot({}).promise();
+        await lex.deleteBot(params).promise();
     } catch(err) {
         console.error('Failed to Delete Lex Chatbot', JSON.stringify(err));
         console.error('RAW:', err);
@@ -876,6 +933,16 @@ exports.handler = async (event, context) => {
                 await open(page, event.ResourceProperties);
                 response_object.Data = await createflow(page, event.ResourceProperties);
 
+            // CREATE QUEUE
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Queue") {
+                await login(page);
+                await open(page, event.ResourceProperties);
+                response_object.Data = await createQueue(page, event.ResourceProperties);
+
+            // CREATE ROUTING PROFILE
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_RoutingProfile") {
+                response_object.Data = await createRoutingProfile(event.ResourceProperties);
+
             // CREATE PHONE NUMBER
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
@@ -906,6 +973,14 @@ exports.handler = async (event, context) => {
                 await open(page, event.ResourceProperties);
                 response_object.Data = await createContactFlows(event.ResourceProperties);
 
+            // UPDATE QUEUE
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_Queue") {
+                await login(page);
+                await open(page);
+                await deleteQueue(page, event.ResourceProperties);
+                response_object.Data = await createQueue(page, event.ResourceProperties);
+
+
             // UPDATE PHONE NUMBER
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
@@ -929,6 +1004,12 @@ exports.handler = async (event, context) => {
             // DELETE CONNECT INSTANCE
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 await deleteConnectInstance(event.ResourceProperties);
+
+            // DELETE QUEUE
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Queue") {
+                await login(page);
+                await open(page);
+                await deleteQueue(page, event.ResourceProperties);
 
             // DELETE PHONE NUMBER
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
