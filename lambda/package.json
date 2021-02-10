@@ -9,7 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.802.0",
+    "aws-sdk": "^2.836.0",
+    "request": "^2.88.2",
     "request-promise": "^4.2.6",
     "url": "^0.11.0"
   }

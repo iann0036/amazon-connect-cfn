@@ -2,7 +2,6 @@
 
 const chromium = require('chrome-aws-lambda');
 const puppeteer = require('puppeteer-core');
-const AWS = require('aws-sdk');
 const rp = require('request-promise');
 
 const instanceInfo = {};
@@ -17,7 +16,11 @@ const { claimnumber, deletephonenumber } = require('./helpers/connect/routing/ph
 const { createConnectInstance, deleteConnectInstance } = require('./helpers/connect/connectInstance');
 
 // Contact Flow CRUD Funcs
-const { createflow } = require('./helpers/connect/routing/contactFlow');
+const { createflow, createContactFlow } = require('./helpers/connect/routing/contactFlow');
+
+// Hours of Operation CRUD Funcs
+
+const { createHoursOfOperation, deleteHoursOfOperation } = require('./helpers/connect/routing/hoursOfOp');
 
 // Queue CRUD Funcs
 const { createQueue, deleteQueue } = require('./helpers/connect/routing/queue');
@@ -74,18 +77,25 @@ exports.handler = async (event, context) => {
             // CREATE CONNECT INSTANCE
             if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Instance") {
                 response_object.Data = await createConnectInstance(event.ResourceProperties, instanceInfo);
-            
+
+            // CREATE HOURS OF OPERATION
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_HoursOfOperation") {
+                console.debug('Creating HoursOfOperation...');
+                await login(page);
+                await open(page, event.ResourceProperties);
+                response_object.Data = await createHoursOfOperation(page, event.ResourceProperties);
+
             // CREATE CONTACT FLOW
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
                 await login(page);
                 await open(page, event.ResourceProperties);
-                response_object.Data = await createflow(page, event.ResourceProperties);
+                response_object.Data = await createContactFlow(event.ResourceProperties);
 
             // CREATE QUEUE
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_Queue") {
                 await login(page);
                 await open(page, event.ResourceProperties);
-                response_object.Data = await createQueue(page, event.ResourceProperties);
+                response_object.Data = await createQueue(event.ResourceProperties);
 
             // CREATE ROUTING PROFILE
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_RoutingProfile") {
@@ -97,7 +107,7 @@ exports.handler = async (event, context) => {
                 await open(page, event.ResourceProperties);
                 response_object.Data = await claimnumber(page, event.ResourceProperties);
                 response_object.PhysicalResourceId = response_object.Data.PhoneNumber;
-            
+
             // CREATE LEX CHATBOT
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
                 response_object.Data = await createLexChatbot(event.ResourceProperties);
@@ -128,7 +138,6 @@ exports.handler = async (event, context) => {
                 await deleteQueue(page, event.ResourceProperties);
                 response_object.Data = await createQueue(page, event.ResourceProperties);
 
-
             // UPDATE PHONE NUMBER
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_PhoneNumber") {
                 await login(page);
@@ -156,7 +165,7 @@ exports.handler = async (event, context) => {
             // DELETE QUEUE
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_Queue") {
                 await login(page);
-                await open(page);
+                await open(page, event.ResourceProperties);
                 await deleteQueue(page, event.ResourceProperties);
 
             // DELETE PHONE NUMBER
@@ -167,6 +176,10 @@ exports.handler = async (event, context) => {
 
             // DELETE CONTACT FLOW
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_ContactFlow") {
+                // do nothing
+
+            // DELETE HOURS OF OPERATION
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_HoursOfOperation") {
                 // do nothing
 
             // DELETE LEX CHATBOT
@@ -180,6 +193,7 @@ exports.handler = async (event, context) => {
             // DELETE LEX SLOTTYPE
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexSlotType") {
                 await deleteLexSlotType(event.ResourceProperties);
+            
             // default response
             } else {
                 throw "Unknown action";

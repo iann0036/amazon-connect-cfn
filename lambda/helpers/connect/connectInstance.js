@@ -13,6 +13,7 @@ module.exports.getInstanceId = async (instanceName) => {
             console.error('RAW', err);
         }
         instance = instances.InstanceSummaryList.filter(x => x.InstanceAlias === instanceName)[0];
+        console.debug('FILTERED', JSON.stringify(instances.InstanceSummaryList.filter(x => x.InstanceAlias === instanceName)[0]));
     } catch(err) {
         console.error('ListInstances Failed', JSON.stringify(err));
         console.error('RAW', err);
@@ -21,9 +22,17 @@ module.exports.getInstanceId = async (instanceName) => {
     return instance.Id;
 }
 
-module.exports.getMedCon = (Channel, Concurrency) => {
+const getMedCon = (Channel, Concurrency) => {
     return { Channel, Concurrency};
 }
+
+const delay = (t, val) => {
+    return new Promise(function(resolve) {
+        setTimeout(function() {
+            resolve(val);
+        }, t);
+    });
+ }
 
 // Connect Instance CRUD Funcs
 module.exports.createConnectInstance = async (properties, instanceInfo) => {
@@ -47,6 +56,13 @@ module.exports.createConnectInstance = async (properties, instanceInfo) => {
         console.error('RAW', err);
         return err;
     }
+
+    // wait 60 seconds to allow Connect Instance to finish building
+    // otherwise infrastructure with the Instance as a dependency will
+    // fail to create and the stack will be rolled-back.
+    await delay(60000);
+
+    // return value
     return {
         'Domain': properties.Domain
     };
@@ -55,7 +71,7 @@ module.exports.createConnectInstance = async (properties, instanceInfo) => {
 module.exports.deleteConnectInstance = async (properties) => {
     let toDelete;
     try{
-        toDelete = await getInstanceId(properties.Domain);
+        toDelete = await module.exports.getInstanceId(properties.Domain);
     } catch(err) {
         console.error('DeleteInstanceFailed', JSON.stringify(err));
         console.error('RAW', err);

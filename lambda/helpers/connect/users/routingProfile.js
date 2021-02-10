@@ -1,5 +1,6 @@
 const AWS = require('aws-sdk');
 const connect = new AWS.Connect();
+const { getInstanceId } = require('../connectInstance');
 
 module.exports.createRoutingProfile = async (properties) => {
     // get connect instance id

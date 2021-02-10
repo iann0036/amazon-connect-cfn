@@ -150,6 +150,7 @@ Resources:
             Path: /
             ManagedPolicyArns:
               - arn:aws:iam::aws:policy/AmazonConnect_FullAccess
+              - arn:aws:iam::aws:policy/AmazonLexFullAccess
             Policies:
               - PolicyName: root
                 PolicyDocument:
@@ -170,6 +171,7 @@ Resources:
                         Action:
                           - secretsmanager:GetSecretValue
                         Resource: !Ref AmazonConnectUserPassword
+        
 
     TransformFunctionPermissions:
         Type: AWS::Lambda::Permission
