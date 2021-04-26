@@ -29,7 +29,14 @@ const { createQueue, deleteQueue } = require('./helpers/connect/routing/queue');
 const { createRoutingProfile } = require('./helpers/connect/users/routingProfile');
 
 // Lexbot CRUD Funcs
-const { createLexChatbot, deleteLexChatbot, createLexIntent, deleteLexIntent, createLexSlotType, deleteLexSlotType } = require('./helpers/lexbot');
+const { createLexChatbot, 
+        deleteLexChatbot, 
+        createLexIntent, 
+        deleteLexIntent, 
+        createLexSlotType, 
+        deleteLexSlotType,
+        createLexPermission,
+        deleteLexPermission} = require('./helpers/lexbot');
 
 exports.handler = async (event, context) => {
     let result = null;
@@ -112,6 +119,10 @@ exports.handler = async (event, context) => {
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
                 response_object.Data = await createLexChatbot(event.ResourceProperties);
 
+            // CREATE LEX PERMISSION
+            } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexPermission") {
+                response_object.Data = await createLexPermission(event.ResourceProperties);
+
             // CREATE LEX INTENT
             } else if (event.RequestType == "Create" && event.ResourceType == "Custom::AWS_Connect_LexIntent") {
                 response_object.Data = await createLexIntent(event.ResourceProperties);
@@ -149,7 +160,11 @@ exports.handler = async (event, context) => {
             // UPDATE LEX CHATBOT
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
                 response_object.Data = await updateLexChatbot(event.ResourceProperties);
-
+            
+            // UPDATE LEX PERMISSION
+            } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexPermission") {
+                // do nothing
+        
             // UPDATE LEX INTENT
             } else if (event.RequestType == "Update" && event.ResourceType == "Custom::AWS_Connect_LexIntent") {
                 response_object.Data = await updateLexIntent(event.ResourceProperties);
@@ -185,6 +200,10 @@ exports.handler = async (event, context) => {
             // DELETE LEX CHATBOT
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexChatBot") {
                 await deleteLexChatbot(event.ResourceProperties);
+            
+            // DELETE LEX PERMISSION
+            } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexPermission") {
+                // do nothing
 
             // DELETE LEX INTENT
             } else if (event.RequestType == "Delete" && event.ResourceType == "Custom::AWS_Connect_LexIntent") {

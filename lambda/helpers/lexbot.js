@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const lex = new AWS.LexModelBuildingService();
 const connect = new AWS.Connect();
+const lambda = new AWS.Lambda();
 
 const { getInstanceId } = require('./connect/connectInstance');
 
@@ -28,7 +29,7 @@ function genSlot(name,
     slotType,
     slotTypeVersion,
     valueElicitationPrompt) {
-        
+
     const slot = {
         name,
         slotConstraint,
@@ -47,7 +48,7 @@ function genSlot(name,
             slot.valueElicitationPrompt.maxAttempts = valueElicitationPrompt.MaxAttempts;
         }
         if (valueElicitationPrompt.Messages) {
-            slot.valueElicitationPrompt.messages = valueElicitationPrompt.Messages;
+            slot.valueElicitationPrompt.messages = valueElicitationPrompt.Messages.map(x => genMsg(x.Content, x.ContentType));
         }
         if (valueElicitationPrompt.ResponseCard) {
             slot.valueElicitationPrompt.responseCard;
@@ -73,11 +74,18 @@ function genEnumVal(value, synonyms) {
         synonyms
     }
 }
+const delay = (t, val) => {
+    return new Promise(function(resolve) {
+        setTimeout(function() {
+            resolve(val);
+        }, t);
+    });
+ }
 
 
 // Lexbot CRUD Funcs
 module.exports.createLexChatbot = async (properties) => {
-    console.debug(properties.Type, JSON.stringify(properties));
+    console.debug(properties.Name, JSON.stringify(properties));
     const botParams = {};
     botParams.name = properties.Name;
 
@@ -85,10 +93,10 @@ module.exports.createLexChatbot = async (properties) => {
         botParams.description = properties.Description;
     }
     if (properties.DetectSentiment) {
-        botParams.detectSentiment = properties.DetectSentiment;
+        botParams.detectSentiment = (properties.DetectSentiment === 'true');
     }
-    if (properties.EnableImprovements) {
-        botParams.enableImprovements = properties.EnableImprovements;
+    if (properties.EnableModelImprovements) {
+        botParams.enableModelImprovements = (properties.EnableModelImprovements === 'true');
     }
     if (properties.CreateVersion) {
         botParams.createVersion = properties.CreateVersion;
@@ -97,30 +105,32 @@ module.exports.createLexChatbot = async (properties) => {
         botParams.idleSessionTTLInSeconds = properties.IdleSessionTTLInSeconds;
     }
     if (properties.ChildDirected) {
-        botParams.childDirected = properties.ChildDirected;
+        console.debug('CHILD DIRECTED', properties.ChildDirected);
+        console.debug('TYPEOF', typeof properties.ChildDirected);
+        botParams.childDirected = (properties.ChildDirected === 'true');
     }
 
     botParams.abortStatement = {};
     if (properties.AbortStatements) {
-        botParams.abortStatement.messages = properties.AbortStatements.Messages.map(x => genMsg(x));
+        botParams.abortStatement.messages = properties.AbortStatements.Messages.map(x => genMsg(x.Content, x.ContentType));
         if (properties.AbortStatements.ResponseCard) {
             botParams.abortStatement.responseCard = properties.AbortResponseCard;
         }
     }
 
-    botParams.ClarificationPrompt = {};
+    botParams.clarificationPrompt = {};
     if (properties.ClarificationPrompt.MaxAttempts) {
         botParams.clarificationPrompt.maxAttempts = properties.ClarificationPrompt.MaxAttempts;
     }
     if (properties.ClarificationPrompt.Messages) {
-        botParams.clarificationPrompt.messages = properties.ClarificationPrompt.Messages.map(x => genMsg(x));
+        botParams.clarificationPrompt.messages = properties.ClarificationPrompt.Messages.map(x => genMsg(x.Content, x.ContentType));
     }
     if (properties.ClarificationPrompt.ResponseCard) {
         botParams.clarificationPrompt.responseCard = properties.ClarificationPrompt.ResponseCard;
     }
     botParams.intents = [];
     if (properties.Intents) {
-        botParams.intents = properties.Intents.map(x => genIntent(x));
+        botParams.intents = properties.Intents.map(x => genIntent(x.IntentName, x.IntentVersion));
     }
     if (properties.NluIntentConfidenceThreshold) {
         botParams.nluIntentConfidenceThreshold = properties.NluIntentConfidenceThreshold;
@@ -132,7 +142,7 @@ module.exports.createLexChatbot = async (properties) => {
         botParams.processBehavior = properties.ProcessBehavior;
     }
     if (properties.Tags) {
-        botParams.tags = properties.Tags.map(x => genTag(x));
+        botParams.tags = properties.Tags.map(x => genTag(x.Key, x.Value));
     }
     if (properties.VoiceId) {
         botParams.voiceId = properties.VoiceId;
@@ -182,37 +192,80 @@ module.exports.createLexChatbot = async (properties) => {
 }
 
 module.exports.updateLexChatbot = async (properties) => {
-    const botParams = {
-        name: properties.Name,
-        abortStatement: {
-            messages: properties.abortStatements.map(x => genMsg(x)),
-            responseCard: properties.AbortResponseCard
-        },
-        checksum: properties.Checksum,
-        childDirected: properties.ChildDirected,
-        clarificationPrompt: {
-            maxAttempts: properties.ClarificationAttempts,
-            messages: clarificationPrompts.map(x => genMsg(x)),
-            responseCard: properties.ClarificationResponseCard
-        },
-        createVersion: properties.CreateVersion,
-        description: properties.Description,
-        detectSentiment: properties.DetectSentiment,
-        enableImprovements: properties.EnableImprovements,
-        idleSessionTTLInSeconds: properties.IdleSessionTTLInSeconds,
-        intents: properties.Intents.map(x => genIntent(x)),
-        nluIntentConfidenceThreshold: properties.NluIntentConfidenceThreshold,
-        locale: properties.Locale,
-        processBehavior: properties.ProcessBehavior,
-        tags: properties.Tags.map(x => genTag(x)),
-        voiceId: properties.VoiceId
-    };
-    const bot = await lex.putBot(botParams).promise();
-    return {
-        name: bot.data.name,
-        status: bot.data.status,
-        failureReason: bot.data.failureReason,
-        checksum: bot.data.checksum
+    const botParams = {};
+    botParams.name = properties.Name;
+
+    if (properties.Description) {
+        botParams.description = properties.Description;
+    }
+    if (properties.DetectSentiment) {
+        botParams.detectSentiment = (properties.DetectSentiment === 'true');
+    }
+    if (properties.EnableModelImprovements) {
+        botParams.enableModelImprovements = (properties.EnableModelImprovements === 'true');
+    }
+    if (properties.CreateVersion) {
+        botParams.createVersion = properties.CreateVersion;
+    }
+    if (properties.IdleSessionTTLInSeconds) {
+        botParams.idleSessionTTLInSeconds = properties.IdleSessionTTLInSeconds;
+    }
+    if (properties.ChildDirected) {
+        console.debug('CHILD DIRECTED', properties.ChildDirected);
+        console.debug('TYPEOF', typeof properties.ChildDirected);
+        botParams.childDirected = (properties.ChildDirected === 'true');
+    }
+
+    botParams.abortStatement = {};
+    if (properties.AbortStatements) {
+        botParams.abortStatement.messages = properties.AbortStatements.Messages.map(x => genMsg(x.Content, x.ContentType));
+        if (properties.AbortStatements.ResponseCard) {
+            botParams.abortStatement.responseCard = properties.AbortResponseCard;
+        }
+    }
+
+    botParams.clarificationPrompt = {};
+    if (properties.ClarificationPrompt.MaxAttempts) {
+        botParams.clarificationPrompt.maxAttempts = properties.ClarificationPrompt.MaxAttempts;
+    }
+    if (properties.ClarificationPrompt.Messages) {
+        botParams.clarificationPrompt.messages = properties.ClarificationPrompt.Messages.map(x => genMsg(x.Content, x.ContentType));
+    }
+    if (properties.ClarificationPrompt.ResponseCard) {
+        botParams.clarificationPrompt.responseCard = properties.ClarificationPrompt.ResponseCard;
+    }
+    botParams.intents = [];
+    if (properties.Intents) {
+        botParams.intents = properties.Intents.map(x => genIntent(x.IntentName, x.IntentVersion));
+    }
+    if (properties.NluIntentConfidenceThreshold) {
+        botParams.nluIntentConfidenceThreshold = properties.NluIntentConfidenceThreshold;
+    }
+    if (properties.Locale) {
+        botParams.locale = properties.Locale
+    }
+    if (properties.ProcessBehavior) {
+        botParams.processBehavior = properties.ProcessBehavior;
+    }
+    if (properties.Tags) {
+        botParams.tags = properties.Tags.map(x => genTag(x.Key, x.Value));
+    }
+    if (properties.VoiceId) {
+        botParams.voiceId = properties.VoiceId;
+    }
+
+    try {
+        const bot = await lex.putBot(botParams).promise();
+        return {
+            name: bot.data.name,
+            status: bot.data.status,
+            failureReason: bot.data.failureReason,
+            checksum: bot.data.checksum
+        }
+    } catch (err) {
+        console.error('UpdateLexBot Failed', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
     }
 }
 
@@ -258,7 +311,8 @@ module.exports.deleteLexChatbot = async (properties) => {
 
 // Lex Intent CRUD Funcs
 module.exports.createLexIntent = async (properties) => {
-    console.debug(properties.Type, JSON.stringify(properties));
+    console.debug(properties.Name, JSON.stringify(properties));
+    await delay(60000);
     const params = {};
     params.name = properties.Name;
     if (properties.CreateVersion) {
@@ -282,16 +336,17 @@ module.exports.createLexIntent = async (properties) => {
             params.confirmationPrompt.maxAttempts = properties.ConfirmationPrompt.MaxAttempts;
         }
         if (properties.ConfirmationPrompt.Messages) {
-            params.confirmationPrompt.messages = properties.ConfirmationPrompt.Messages.map(x => genMsg(x.Contnet, x.ContentType, x.GroupNumber));
+            params.confirmationPrompt.messages = properties.ConfirmationPrompt.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber));
         }
         if (properties.ConfirmationPrompt.ResponseCard) {
             params.confirmationPrompt.responseCard = properties.ConfirmationPrompt.ResponseCard;
         }
     }
     if (properties.DialogCodeHook) {
+        console.debug('MSG VERSION', properties.DialogCodeHook.MessageVersion);
         params.dialogCodeHook = {
             messageVersion: properties.DialogCodeHook.MessageVersion,
-            uri: properties.DialogCodeHook.uri
+            uri: properties.DialogCodeHook.URI
         }
     }
     if (properties.FollowUpPrompt) {
@@ -309,10 +364,12 @@ module.exports.createLexIntent = async (properties) => {
     }
     if (properties.FulfillmentActivity) {
         params.fulfillmentActivity = {
-            type: properties.FulfillmentActivity.Type,
-            codeHook: {
+            type: properties.FulfillmentActivity.Type
+        }
+        if (properties.FulfillmentActivity.CodeHook) {
+            params.fulfillmentActivity.codeHook = {
                 messageVersion: properties.FulfillmentActivity.CodeHook.MessageVersion,
-                uri: properties.FulfillmentActivity.CodeHook.Uri
+                uri: properties.FulfillmentActivity.CodeHook.URI
             }
         }
     }
@@ -373,55 +430,96 @@ module.exports.createLexIntent = async (properties) => {
 }
 
 module.exports.updateLexIntent = async (properties) => {
-    const params = {
-        name: properties.IntentName,
-        conclusionStatement: {
-            messages: properties.ConclusionStatements.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
-            responseCard: properties.ConclusionResponseCard
-        },
-        confirmationPrompt: {
-            maxAttempts: properties.ConfirmationMaxAttempts,
-            messages: properties.ConfirmationPrompts.map(x => genMsg(x.Contnet, x.ContentType, x.GroupNumber)),
-            responseCard: properties.ConfirmationResponseCard
-        },
-        createVersion: properties.CreateVersion,
-        description: properties.Description,
-        dialogCodeHook: {
+    console.debug(properties.Name, JSON.stringify(properties));
+    const params = {};
+    params.name = properties.Name;
+    if (properties.CreateVersion) {
+        params.createVersion = properties.CreateVersion;
+    }
+    if (properties.Description) {
+        params.description = properties.Description;
+    }
+    if (properties.ConclusionStatement) {
+        params.conclusionStatement = {};
+        if (properties.ConclusionStatement.Messages) {
+            params.conclusionStatement.messages = properties.ConclusionStatement.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber));
+        }
+        if (properties.ConclusionStatement.ResponseCard) {
+            params.conclusionStatement.responseCard = properties.ConclusionStatement.ResponseCard;
+        }
+    }
+    if (properties.ConfirmationPrompt) {
+        params.confirmationPrompt = {};
+        if (properties.ConfirmationPrompt.MaxAttempts) {
+            params.confirmationPrompt.maxAttempts = properties.ConfirmationPrompt.MaxAttempts;
+        }
+        if (properties.ConfirmationPrompt.Messages) {
+            params.confirmationPrompt.messages = properties.ConfirmationPrompt.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber));
+        }
+        if (properties.ConfirmationPrompt.ResponseCard) {
+            params.confirmationPrompt.responseCard = properties.ConfirmationPrompt.ResponseCard;
+        }
+    }
+    if (properties.DialogCodeHook) {
+        params.dialogCodeHook = {
             messageVersion: properties.DialogCodeHook.MessageVersion,
-            uri: properties.DialogCodeHook.uri
-        },
-        followUpPrompt: {
+            uri: properties.DialogCodeHook.URI
+        }
+    }
+    if (properties.FollowUpPrompt) {
+        params.followUpPrompt = {
             prompt: {
-                maxAttempts: properties.FollowUpPrompt.MaxAttempts,
-                messages: properties.DialogCodeHook.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
-                responseCard: properties.FollowUpPrompt.ResponseCard
+                maxAttempts: properties.FollowUpPrompt.Prompt.MaxAttempts,
+                messages: properties.FollowUpPrompt.Prompt.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                responseCard: properties.FollowUpPrompt.Prompt.ResponseCard
             },
             rejectionStatement: {
-                messages: properties.RejectionStatement.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
-                responseCard: properties.RejectionStatement.ResponseCard
+                messages: properties.FollowUpPrompt.RejectionStatement.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+                responseCard: properties.FollowUpPrompt.RejectionStatement.ResponseCard
             }
-        },
-        fulfillmentActivity: {
-            type: properties.FulfillmentActivity.Type,
-            codeHook: {
+        }
+    }
+    if (properties.FulfillmentActivity) {
+        params.fulfillmentActivity = {
+            type: properties.FulfillmentActivity.Type
+        }
+        if (properties.FulfillmentActivity.CodeHook) {
+            params.fulfillmentActivity.codeHook = {
                 messageVersion: properties.FulfillmentActivity.CodeHook.MessageVersion,
-                uri: properties.FulfillmentActivity.CodeHook.Uri
+                uri: properties.FulfillmentActivity.CodeHook.URI
             }
-        },
-        inputContexts: properties.InputContexts.map(x => { return { name: x.Name } }),
-        kendraConfiguration: {
+        }
+    }
+    if (properties.InputContexts) {
+        params.inputContexts = properties.InputContexts.map(x => { return { name: x.Name } });
+    }
+    if (properties.KendraConfiguration) {
+        params.kendraConfiguration = {
             kendraIndex: properties.KendraConfiguration.KendraIndex,
             role: properties.KendraConfiguration.Role,
             queryFilterString: properties.KendraConfiguration.QueryFilterString
-        },
-        outputContexts: properties.OutputContexts.map(x => genOutputCtxt(x.Name, x.TTLInSeconds, x.TurnsToLive)),
-        parentIntentSignature: properties.ParentIntentSignature,
-        rejectionStatement: {
-            messages: properties.RejectionStatement.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
-            responseCard: properties.RejectionStatement.ResponseCard
-        },
-        sampleUtterances: properties.SampleUtterances,
-        slots: properties.Slots.map(x => genSlot(x.Name,
+        }
+    }
+    if (properties.OutputContexts) {
+        params.outputContexts = properties.OutputContexts.map(x => genOutputCtxt(x.Name, x.TTLInSeconds, x.TurnsToLive));
+    }
+    if (properties.ParentIntentSignagure) {
+        params.parentIntentSignature = properties.ParentIntentSignature;
+    }
+    if (properties.RejectionStatement) {
+        params.rejectionStatement = {
+            messages: properties.RejectionStatement.Messages.map(x => genMsg(x.Content, x.ContentType, x.GroupNumber)),
+        }
+        if (properties.RejectionStatement.ResponseCard) {
+            params.rejectionStatement.responseCard = properties.RejectionStatement.ResponseCard;
+        }
+    }
+    if (properties.SampleUtterances) {
+        params.sampleUtterances = properties.SampleUtterances;
+    }
+    if (properties.Slots) {
+        console.debug('SLOTS', properties.Slots);
+        params.slots = properties.Slots.map(x => genSlot(x.Name,
             x.SlotConstraint,
             x.DefaultValueList,
             x.Description,
@@ -432,7 +530,7 @@ module.exports.updateLexIntent = async (properties) => {
             x.SlotType,
             x.SlotTypeVersion,
             x.ValueElicitationPrompt))
-    };
+    }
 
     // create Intent
     const data = {};
@@ -462,7 +560,7 @@ module.exports.deleteLexIntent = async (properties) => {
 
 // Lex SlotType CRUD Funcs
 module.exports.createLexSlotType = async (properties) => {
-    console.debug(properties.Type, JSON.stringify(properties));
+    console.debug(properties.Name, JSON.stringify(properties));
     const params = {};
     params.name = properties.Name;
 
@@ -542,5 +640,35 @@ module.exports.deleteLexSlotType = async (properties) => {
     return {
         Name: properties.Name,
         Success: true
+    }
+}
+
+// Lex Permission CRUD Funcs
+module.exports.createLexPermission = async (properties) => {
+    console.debug('CREATE LEX PERMISSON');
+    let sourceArn = properties.Source[0].split(':');
+    sourceArn.splice(4, 1, process.env.ACCOUNTID);
+    sourceArn = sourceArn.join(':');
+    console.debug('SOURCE', sourceArn);
+    const permissions = {
+        StatementId: properties.Sid,
+        Action: properties.Action,
+        FunctionName: properties.Resource.split(':').pop(),
+        Principal: properties.Principal
+    };
+    console.debug('PERMISSION', JSON.stringify(permissions));
+
+    // add invokeLambda permissions for LexBot
+    try {
+        await lambda.addPermission(permissions).promise();
+    } catch (err) {
+        console.error('FAILED to AddPermission', JSON.stringify(err));
+        console.error('RAW', err);
+        return err;
+    }
+
+    return {
+        Success: true,
+        Name: properties.Name
     }
 }

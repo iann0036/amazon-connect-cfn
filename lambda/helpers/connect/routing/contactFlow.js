@@ -48,7 +48,7 @@ function genAction(state) {
 
 function parseContent(properties) {
 
-    // us raw JSON document if supplied, otherwise use parsed yaml
+    // use raw JSON document if supplied, otherwise use parsed yaml
     if (properties.JSONContent) {
         return properties.JSONContent
     }

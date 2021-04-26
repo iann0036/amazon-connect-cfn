@@ -151,6 +151,7 @@ Resources:
             ManagedPolicyArns:
               - arn:aws:iam::aws:policy/AmazonConnect_FullAccess
               - arn:aws:iam::aws:policy/AmazonLexFullAccess
+              - arn:aws:iam::aws:policy/AWSLambda_FullAccess
             Policies:
               - PolicyName: root
                 PolicyDocument:
