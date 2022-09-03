@@ -1,3 +1,5 @@
+# DEPRECATED - NOW AN OFFICIAL RESOURCE: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/AWS_Connect.html
+
 # CloudFormation Provider for Amazon Connect
 
 > _"You did WHAT?"_
