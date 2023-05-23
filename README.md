@@ -29,6 +29,7 @@ Check out the [example_stack.yaml](example_stack.yaml) file for a comprehensive 
 * [AWS::Connect::Instance](docs/AWS_Connect_Instance.md)
 * [AWS::Connect::ContactFlow](docs/AWS_Connect_ContactFlow.md)
 * [AWS::Connect::PhoneNumber](docs/AWS_Connect_PhoneNumber.md)
+* [AWS::Connect::LexChatBot] (docs/AWS_Connect_LexChatBot.md)
 
 
 ## How It Works

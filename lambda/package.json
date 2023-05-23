@@ -1,5 +1,5 @@
 {
-  "name": "nodejs",
+  "name": "lambda",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,7 +9,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "chrome-aws-lambda": "^5.5.0",
-    "puppeteer-core": "^5.5.0"
+    "aws-sdk": "^2.836.0",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
+    "url": "^0.11.0"
   }
 }

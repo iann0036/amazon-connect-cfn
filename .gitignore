@@ -1,2 +1,5 @@
 lambda/node_modules
 lambda/*.zip
+lambda-layer/*.zip
+lambda-layer/node_modules
+.deploy
